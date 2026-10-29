@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sinatra
+  labels:
+    app: sinatra
+  annotations:
+    sinatra/note: >-
+      The live interceptor writes a HUD image and does not listen.
+      This Service is headless so the pods have a stable DNS name.
+      Port 9 is discard and is not served by the container.
+spec:
+  clusterIP: None
+  selector:
+    app: sinatra
+  ports:
+    - name: discard
+      port: 9
+      targetPort: 9
+      protocol: TCP

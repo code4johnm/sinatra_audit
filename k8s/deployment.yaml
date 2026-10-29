@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sinatra
+  labels:
+    app: sinatra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sinatra
+  template:
+    metadata:
+      labels:
+        app: sinatra
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sinatra
+          image: sinatra-sandbox:local
+          imagePullPolicy: Never
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: MPLBACKEND
+              value: Agg
+            - name: MPLCONFIGDIR
+              value: /tmp/mpl
+            - name: HOME
+              value: /tmp
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 4Gi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: output
+              mountPath: /output
+      volumes:
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 512Mi
+        - name: output
+          emptyDir:
+            sizeLimit: 1Gi
