@@ -1448,7 +1448,12 @@ def run_live_sky_interceptor():
 
 
 if __name__ == "__main__":
-    run_live_sky_interceptor()
+    cycle = 0
+    while True:
+        cycle += 1
+        print(f"\n[*] Continuous cycle {cycle}")
+        run_live_sky_interceptor()
+        plt.close("all")
 
 
 
