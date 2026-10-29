@@ -49,6 +49,10 @@ The image is `python:3.12-slim-bookworm` plus numpy, scipy, sympy, matplotlib, r
 
 `k8s/deployment.yaml` runs one replica as that uid, with a read-only root filesystem, every capability dropped, and emptyDir volumes on `/tmp` and `/output`. `k8s/service.yaml` is headless. Port 9 is discard and is not served.
 
+## Network
+
+The container does not listen. It uses outbound HTTP on port 80 and HTTPS on port 443 for the public data feeds. If those requests fail, the script uses its built-in values and still writes the HUD image. Git traffic for this repo is SSH on port 22. The host port list is `~/.local/share/network-baseline.md`.
+
 ## Operational notes
 
 Stop a local container with `docker stop sinatra-live`. An exited container still holds that name until it is removed.
