@@ -1,0 +1,37 @@
+flowchart TD
+  noaa["NOAA SWPC mag and plasma JSON"]
+  cele["CelesTrak NORAD GP JSON"]
+  cosmic["Local cosmic_data or synthetic Chapman curve"]
+  sw["LiveSpaceWeather"]
+  swfb["Built-in IMF values"]
+  prop["propagate_omm_to_leo_state"]
+  kep["Built-in Keplerian elements"]
+  tgt["LiveOrbitalTarget"]
+  env["COSMIC_TEC_Mission_Environment"]
+  inject["Altitude and B-field soliton wake"]
+  clutter["Sub-zero SNR clutter"]
+  engine["SINTRA_BlindMultiScale_Engine"]
+  stack["Coherent moving-frame stack"]
+  sigma["sigma_star estimate"]
+  jko["JKO sigma relaxation"]
+  debris["estimate_debris_profile to DebrisMetrics"]
+  hud["sintra_live_norad_intercept_hud.png"]
+
+  noaa --> sw
+  noaa -.-> swfb
+  swfb --> sw
+  cele --> prop
+  cele -.-> kep
+  kep --> prop
+  sw --> prop
+  prop --> tgt
+  cosmic --> env
+  tgt --> inject
+  env --> inject
+  inject --> clutter
+  clutter --> engine
+  engine --> stack
+  stack --> sigma
+  sigma --> jko
+  jko --> debris
+  debris --> hud

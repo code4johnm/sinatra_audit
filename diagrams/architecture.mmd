@@ -1,0 +1,47 @@
+classDiagram
+  class LiveSpaceWeather {
+    +source_status
+    +bx_nt
+    +by_nt
+    +bz_nt
+  }
+  class LiveOrbitalTarget {
+    +norad_id
+    +altitude_km
+    +true_wake_sigma_m
+    +ephemeris_source
+  }
+  class COSMIC_TEC_Mission_Environment {
+    +load_or_synthesize()
+    +observe()
+  }
+  class RawClassicalDetector {
+    +get_raw_measurement()
+  }
+  class IMMProxyTracker {
+    +step()
+  }
+  class ParticleFilterTracker {
+    +step()
+  }
+  class SINTRA_BlindMultiScale_Engine {
+    +initialize()
+    +_ricker_lsb_at_scale()
+    +_detrend_local_linear()
+    +_blind_scale_estimator()
+    +step()
+  }
+  class DebrisMetrics {
+    +sigma_star
+    +lambda_potential
+    +mass_profile_proxy
+    +inferred_class
+  }
+
+  LiveSpaceWeather --> LiveOrbitalTarget : fetch_live_norad_catalog
+  LiveOrbitalTarget --> COSMIC_TEC_Mission_Environment : run_live_sky_interceptor
+  COSMIC_TEC_Mission_Environment --> RawClassicalDetector : observe
+  RawClassicalDetector --> IMMProxyTracker : raw gate
+  RawClassicalDetector --> ParticleFilterTracker : raw gate
+  LiveOrbitalTarget --> SINTRA_BlindMultiScale_Engine : wake injection
+  SINTRA_BlindMultiScale_Engine --> DebrisMetrics : estimate_debris_profile

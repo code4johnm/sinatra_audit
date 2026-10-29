@@ -49,6 +49,74 @@ The image is `python:3.12-slim-bookworm` plus numpy, scipy, sympy, matplotlib, r
 
 `k8s/deployment.yaml` runs one replica as that uid, with a read-only root filesystem, every capability dropped, and emptyDir volumes on `/tmp` and `/output`. `k8s/service.yaml` is headless. Port 9 is discard and is not served.
 
+## Diagrams
+
+The drawings live in [diagrams/](diagrams/README.md). Each `.mmd` file is the source. GitHub renders the copies below.
+
+```mermaid
+flowchart TD
+  noaa["NOAA SWPC mag and plasma JSON"]
+  cele["CelesTrak NORAD GP JSON"]
+  cosmic["Local cosmic_data or synthetic Chapman curve"]
+  sw["LiveSpaceWeather"]
+  swfb["Built-in IMF values"]
+  prop["propagate_omm_to_leo_state"]
+  kep["Built-in Keplerian elements"]
+  tgt["LiveOrbitalTarget"]
+  env["COSMIC_TEC_Mission_Environment"]
+  inject["Altitude and B-field soliton wake"]
+  clutter["Sub-zero SNR clutter"]
+  engine["SINTRA_BlindMultiScale_Engine"]
+  stack["Coherent moving-frame stack"]
+  sigma["sigma_star estimate"]
+  jko["JKO sigma relaxation"]
+  debris["estimate_debris_profile to DebrisMetrics"]
+  hud["sintra_live_norad_intercept_hud.png"]
+
+  noaa --> sw
+  noaa -.-> swfb
+  swfb --> sw
+  cele --> prop
+  cele -.-> kep
+  kep --> prop
+  sw --> prop
+  prop --> tgt
+  cosmic --> env
+  tgt --> inject
+  env --> inject
+  inject --> clutter
+  clutter --> engine
+  engine --> stack
+  stack --> sigma
+  sigma --> jko
+  jko --> debris
+  debris --> hud
+```
+
+```mermaid
+flowchart TD
+  docker["Dockerfile"]
+  image["Image sinatra-sandbox:local"]
+  user["User 10001, read-only root, no published ports"]
+  launch["launch.py sets Agg and skips show"]
+  script["sintra_live_sky_catalog_interceptor.py"]
+  loop["Continuous cycle loop"]
+  png["HUD PNG on /output"]
+  dep["k8s/deployment.yaml"]
+  svc["k8s/service.yaml headless, port 9 unused"]
+  host["No cluster on this laptop"]
+
+  docker --> image
+  image --> user
+  user --> launch
+  launch --> script
+  script --> loop
+  loop --> png
+  dep --> image
+  svc --> dep
+  host --> dep
+```
+
 ## Network
 
 The container does not listen. It uses outbound HTTP on port 80 and HTTPS on port 443 for the public data feeds. If those requests fail, the script uses its built-in values and still writes the HUD image. Git traffic for this repo is SSH on port 22. The host port list is `~/.local/share/network-baseline.md`.
