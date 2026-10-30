@@ -1,0 +1,41 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sinatra
+  labels:
+    app: sinatra
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: sinatra
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: sinatra
+          image: sinatra:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SINTRA_SCRIPT
+              value: sintra_live_mission_demo.py
+            - name: MPLBACKEND
+              value: Agg
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          volumeMounts:
+            - name: out
+              mountPath: /out
+      volumes:
+        - name: out
+          emptyDir: {}
