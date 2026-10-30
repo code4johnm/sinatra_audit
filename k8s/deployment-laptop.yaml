@@ -1,0 +1,72 @@
+# Laptop binding for the container that Docker was running as sinatra-live.
+# Same image, same bind mounts, uid 1000. The hardened deployment.yaml stays
+# the portable spec. Apply this file on the Kali node, then stop the Docker
+# container so only one interceptor is running.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sinatra
+  labels:
+    app: sinatra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sinatra
+  template:
+    metadata:
+      labels:
+        app: sinatra
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: sinatra
+          image: docker.io/library/sinatra-sandbox:local
+          imagePullPolicy: Never
+          command: ["python", "/opt/sandbox/launch.py", "/opt/sinatra/sintra_live_sky_catalog_interceptor.py"]
+          env:
+            - name: MPLBACKEND
+              value: Agg
+            - name: MPLCONFIGDIR
+              value: /tmp/mpl
+            - name: HOME
+              value: /tmp
+            - name: PYTHONUNBUFFERED
+              value: "1"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1536Mi
+          volumeMounts:
+            - name: launch
+              mountPath: /opt/sandbox/launch.py
+              readOnly: true
+            - name: source
+              mountPath: /opt/sinatra
+              readOnly: true
+            - name: output
+              mountPath: /output
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: launch
+          hostPath:
+            path: /home/user/sinatra-sandbox/launch.py
+            type: File
+        - name: source
+          hostPath:
+            path: /mnt/5TB/git/sinatra
+            type: Directory
+        - name: output
+          hostPath:
+            path: /home/user/sinatra-sandbox/output
+            type: DirectoryOrCreate
+        - name: tmp
+          emptyDir: {}
