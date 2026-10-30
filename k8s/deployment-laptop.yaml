@@ -29,6 +29,8 @@ spec:
           image: docker.io/library/sinatra-sandbox:local
           imagePullPolicy: Never
           command: ["python", "/opt/sandbox/launch.py", "/opt/sinatra/sintra_live_sky_catalog_interceptor.py"]
+          # The interceptor writes its PNG to a relative path. Docker used -w /output.
+          workingDir: /output
           env:
             - name: MPLBACKEND
               value: Agg
