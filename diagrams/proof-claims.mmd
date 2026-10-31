@@ -1,0 +1,25 @@
+graph TD
+  code[sintra_definitive_math_proof.py]
+  id1[1 Cold-fluid forced KdV]
+  id2[2 Gardner flow of stated H]
+  id3[3 Chart convexity of E]
+  id4[4 Gain-tensor spectrum]
+  id5[5 Ricker moments 0 and 1]
+  id6[6 Scalar left inverse]
+  sim[7 Monte Carlo report]
+  audit[sinatra_math_proof_audit.md]
+
+  code --> id1
+  code --> id2
+  code --> id3
+  code --> id4
+  code --> id5
+  code --> id6
+  code --> sim
+  id1 --> audit
+  id2 --> audit
+  id3 --> audit
+  id4 --> audit
+  id5 --> audit
+  id6 --> audit
+  sim --> audit

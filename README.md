@@ -1,8 +1,8 @@
 # Sinatra
 
-Separte copy of the SINTRA live interceptor, packaged as a local container. The process does not listen on a port. It loops the sky-catalog script and writes a HUD image.
+Separate copy of the SINTRA live interceptor, packaged as a local container. The process does not listen on a port. It loops the sky-catalog script and writes a HUD image.
 
-Remote: `git@github.com:code4johnm/sinatra.git` (pubic).
+Remote: `git@github.com:code4johnm/sinatra_audit.git`.
 
 ## How to run
 
@@ -49,31 +49,31 @@ The image is `python:3.12-slim-bookworm` plus numpy, scipy, sympy, matplotlib, r
 
 ## Diagrams
 
-The drawings live in [diagrams/](diagrams/README.md). Each `.mmd` file is the source. GitHub renders the copies below.
+Sources are in [diagrams/](diagrams/README.md). The copies below use `graph` and labels without slashes or parentheses, which is what GitHub Mermaid actually renders. A slash inside a node label is parsed as a shape, so those diagrams were failing.
 
 ```mermaid
-flowchart TD
-  noaa["NOAA SWPC mag and plasma JSON"]
-  cele["CelesTrak NORAD GP JSON"]
-  cosmic["Local cosmic_data or synthetic Chapman curve"]
-  sw["LiveSpaceWeather"]
-  swfb["Built-in IMF values"]
-  prop["propagate_omm_to_leo_state"]
-  kep["Built-in Keplerian elements"]
-  tgt["LiveOrbitalTarget"]
-  env["COSMIC_TEC_Mission_Environment"]
-  inject["Altitude and B-field soliton wake"]
-  clutter["Sub-zero SNR clutter"]
-  engine["SINTRA_BlindMultiScale_Engine"]
-  stack["Coherent moving-frame stack"]
-  sigma["sigma_star estimate"]
-  jko["JKO sigma relaxation"]
-  debris["estimate_debris_profile to DebrisMetrics"]
-  hud["sintra_live_norad_intercept_hud.png"]
+graph TD
+  noaa[NOAA space-weather JSON]
+  cele[CelesTrak NORAD catalog]
+  cosmic[Local cosmic_data or synthetic Chapman curve]
+  sw[LiveSpaceWeather]
+  fallback[Built-in IMF values]
+  prop[Propagate OMM to a LEO state]
+  kep[Built-in Keplerian elements]
+  tgt[LiveOrbitalTarget]
+  env[Mission environment]
+  inject[Altitude and B-field wake]
+  clutter[Injected clutter on a long grid]
+  engine[Blind multi-scale engine]
+  stack[Moving-frame stack]
+  sigma[Width estimate]
+  jko[Width relaxation]
+  debris[DebrisMetrics]
+  hud[HUD PNG]
 
   noaa --> sw
-  noaa -.-> swfb
-  swfb --> sw
+  noaa -.-> fallback
+  fallback --> sw
   cele --> prop
   cele -.-> kep
   kep --> prop
@@ -92,17 +92,20 @@ flowchart TD
 ```
 
 ```mermaid
-flowchart TD
-  docker["Dockerfile"]
-  image["Image sinatra-sandbox:local"]
-  user["User 10001, read-only root, no published ports"]
-  launch["launch.py sets Agg and skips show"]
-  script["sintra_live_sky_catalog_interceptor.py"]
-  loop["Continuous cycle loop"]
-  png["HUD PNG on /output"]
-  dep["k8s/deployment.yaml"]
-  svc["k8s/service.yaml headless, port 9 unused"]
-  host["No cluster on this laptop"]
+graph TD
+  docker[Dockerfile]
+  image[Image sinatra-sandbox local]
+  user[User 10001 read-only root]
+  launch[launch.py sets Agg and skips show]
+  script[Sky-catalog interceptor]
+  loop[Continuous cycle]
+  png[HUD PNG on the output volume]
+  dep[Kubernetes Deployment]
+  svc[Headless Service unused port 9]
+  jobfile[Dockerfile.job]
+  jobimg[Image sinatra latest]
+  job[Kubernetes Job one shot]
+  outvol[PNG on the out volume]
 
   docker --> image
   image --> user
@@ -112,8 +115,35 @@ flowchart TD
   loop --> png
   dep --> image
   svc --> dep
-  host --> dep
+  jobfile --> jobimg
+  jobimg --> job
+  job --> outvol
 ```
+
+```mermaid
+graph TD
+  code[Proof script]
+  id1[Cold-fluid forced KdV]
+  id2[Gardner flow of stated H]
+  id3[Chart convexity of E]
+  id4[Gain-tensor spectrum]
+  id5[Ricker moments 0 and 1]
+  id6[Scalar left inverse]
+  sim[Monte Carlo report]
+  audit[Math proof audit]
+
+  code --> id1
+  code --> id2
+  code --> id3
+  code --> id4
+  code --> id5
+  code --> id6
+  code --> sim
+  id1 --> audit
+  sim --> audit
+```
+
+The proof script checks identities. It does not prove sub-zero-SNR custody. See [sinatra_math_proof_audit.md](sinatra_math_proof_audit.md).
 
 ## Network
 
@@ -123,7 +153,7 @@ The container does not listen. It uses outbound HTTP on port 80 and HTTPS on por
 
 Stop a local container with `docker stop sinatra-live`. An exited container still holds that name until it is removed.
 
-The repo stays private. Do not force-push. Do not add secrets or `.mil` material.
+Do not force-push. Do not add secrets or `.mil` material.
 
 The HUD and the three checked-in PNG files are pictures of the script's output, not a service endpoint.
 

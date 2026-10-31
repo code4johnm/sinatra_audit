@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """
 sintra_definitive_math_proof.py
-IARPA SINTRA — Automated Symbolic & Statistical Proof Suite (Reviewer Rebuttal Edition)
 
-Executes 7 machine-verified mathematical and empirical proofs directly in the terminal
-using SymPy (exact Computer Algebra System), NumPy, and SciPy:
+Symbolic checks and one labeled simulation. A zero residual is not a physical theorem.
 
-  [THEOREM 1] Washimi-Taniuti Reductive Perturbation: Fluid-Poisson -> Forced KdV PDE
-  [THEOREM 2] Variational Calculus: Hamiltonian Energy Functional -> Forced KdV PDE
-  [THEOREM 3] Gaussian Wasserstein Submanifold: Geodesic Convexity, EVI & Dissipation Law
-  [THEOREM 4] Magnetized LEO Ionosphere: 3D Anisotropic Fisher Tensor Orthogonal Isolation
-  [THEOREM 5] Sub-Zero SNR Recovery: Wavelet LSB Zero-Moment Carrier Annihilation & Gain
-  [THEOREM 6] Inverse Soliton Problem: Exact Bijective Recovery of Debris Potential V_debris
-  [THEOREM 7] Empirical Rigor: Authentic COSMIC-1 Sub-Zero SNR Monte Carlo & Wilcoxon Audit
+  [1] Cold-ion fluid-Poisson reduction to a forced KdV equation.
+      Bookkeeping uses eps_script = eps_Washimi-Taniuti**(1/2). S = S(xi) only.
+  [2] That PDE is the Gardner flow of a stated energy. It is not an action principle.
+  [3] E(m, sigma) is lambda-convex in those coordinates. The printed EVI is not checked.
+  [4] Anisotropic gain tensor: spectrum {alpha_parallel, alpha_perp, alpha_perp}.
+      Not a Fisher metric and not a cyclotron frequency.
+  [5] Ricker kernel: vanishing moments of order 0 and 1. Order 2 does not vanish.
+      Numerical decibel figures are a filter demo, not part of the identity check.
+  [6] Left inverse of the scalar map sigma_*(lambda). Not charge, mass, or V(x).
+  [7] Monte Carlo report. Not a proof of sub-zero-SNR custody.
 """
 
 import os
@@ -63,17 +64,22 @@ def banner(title: str, subtitle: str = ""):
 
 
 def qed_badge(statement: str):
-    print(f"  {C_GREEN}{C_BOLD}[Q.E.D. // MACHINE VERIFIED]{C_RESET} {C_BOLD}{statement}{C_RESET}")
+    print(f"  {C_GREEN}{C_BOLD}[CHECKED]{C_RESET} {C_BOLD}{statement}{C_RESET}")
+    time.sleep(PAUSE_SEC)
+
+
+def scope_note(statement: str):
+    print(f"  {C_YELLOW}{C_BOLD}[SCOPE]{C_RESET} {statement}")
     time.sleep(PAUSE_SEC)
 
 
 # ==============================================================================
-# THEOREM 1: FLUID-POISSON TO FORCED KdV VIA REDUCTIVE PERTURBATION
+# THEOREM 1: COLD-ION FLUID-POISSON TO FORCED KdV
 # ==============================================================================
 def prove_theorem_1_reductive_perturbation() -> bool:
     banner(
-        "THEOREM 1: MACROSCOPIC ION FLUID-POISSON TO FORCED KdV PDE",
-        "Refutes Claim: 'Mixes unrelated mathematical constructs that do not align with real plasma modeling'",
+        "THEOREM 1: COLD-ION FLUID-POISSON TO FORCED KdV",
+        "Identity check only. eps_script = eps_WT**(1/2). No Landau damping. S = S(xi).",
     )
     print(f"  {C_DIM}[*] Initializing symbolic cold-ion fluid-Poisson PDE system with debris forcing...{C_RESET}")
 
@@ -141,7 +147,7 @@ def prove_theorem_1_reductive_perturbation() -> bool:
 
     verified = residual == 0
     assert verified, "Theorem 1 verification failed!"
-    qed_badge("Macroscopic Ion Fluid-Poisson equations reduce identically to the Forced KdV Soliton PDE.")
+    qed_badge("Cold-fluid elimination matches the forced KdV target. Not a kinetic ionosphere theorem.")
     return verified
 
 
@@ -150,8 +156,8 @@ def prove_theorem_1_reductive_perturbation() -> bool:
 # ==============================================================================
 def prove_theorem_2_hamiltonian_equivalence() -> bool:
     banner(
-        "THEOREM 2: VARIATIONAL CALCULUS & HAMILTONIAN EQUIVALENCE",
-        "Proves conservative Hamiltonian wave structure d_tau(phi) = d_xi(delta H / delta phi)",
+        "THEOREM 2: GARDNER HAMILTONIAN REPRESENTATION",
+        "Shows the forced KdV is J(delta H) with J = d/dxi. Not an Euler-Lagrange action.",
     )
     xi, tau = sp.symbols("xi tau", real=True)
     phi = sp.Function("phi")(xi, tau)
@@ -191,7 +197,7 @@ def prove_theorem_2_hamiltonian_equivalence() -> bool:
 
     verified = residual == 0
     assert verified, "Theorem 2 verification failed!"
-    qed_badge("Hamiltonian energy functional generates the exact Forced KdV soliton dynamics.")
+    qed_badge("Gardner flow of this H matches the forced KdV. Energy conservation is not checked here.")
     return verified
 
 
@@ -200,8 +206,8 @@ def prove_theorem_2_hamiltonian_equivalence() -> bool:
 # ==============================================================================
 def prove_theorem_3_wasserstein_convexity() -> bool:
     banner(
-        "THEOREM 3: GAUSSIAN WASSERSTEIN SUBMANIFOLD, GEODESIC CONVEXITY & EVI CONTRACTION",
-        "Refutes Claim: 'Claims of geodesic convexity guarantees are unsubstantiated'",
+        "THEOREM 3: GAUSSIAN-CHART CONVEXITY OF E(m, sigma)",
+        "Checks the Euclidean Hessian. Does not check an EVI on P2(R).",
     )
     m = sp.Symbol("m", real=True)
     sigma = sp.Symbol("sigma", positive=True, real=True)
@@ -242,28 +248,30 @@ def prove_theorem_3_wasserstein_convexity() -> bool:
         H_ss.subs(sigma, (2 * alpha / (lam + 2 * k)) ** sp.Rational(1, 4))
     )
     res_curvature = sp.simplify(H_ss_at_star - (4 * lam + 8 * k))
+    # Strong-convexity gap in the width coordinate. Positive for alpha, k, sigma > 0.
+    hess_gap = sp.factor(sp.simplify(H_ss - lam))
 
-    # Entropy Production (Dissipation Law: dE/dtau = -||grad_W2 E||^2 <= 0)
+    # Critical-point check only. This is not dE/dt along a trajectory.
     entropy_production = sp.simplify(grad_m**2 + grad_sigma**2)
     ep_at_equilibrium = sp.simplify(
         entropy_production.subs(
             {m: m_star, sigma: (2 * alpha / (lam + 2 * k)) ** sp.Rational(1, 4)}
         )
     )
+    print(f"  1. Reduced energy E(m, sigma)         : {E_reduced}")
+    print(f"  2. Euclidean gradient of E            : [{grad_m}, {grad_sigma}]")
+    print(f"  3. Critical point (m*, s*)            : m* = {m_star},  sigma_* = (2*alpha/(lambda + 2*k))^(1/4)")
+    print(f"  4. Thermal Hessian in sigma           : {hess_sigma_thermal} (Residual = {res_thermal})")
+    print(f"  5. Hessian of reduced E               : [[{H_mm}, {H_ms}], [{H_sm}, {H_ss}]]")
+    print(f"  6. Width curvature minus lambda       : {hess_gap}")
+    print(f"  7. Equilibrium width curvature        : {H_ss_at_star} (Expected: 4*lambda + 8*k, Residual = {res_curvature})")
+    print(f"  8. Gradient norm at critical point    : {ep_at_equilibrium}  (not a dissipation law)")
+    print("  9. EVI on P2(R) is not checked. On 1D Gaussians, W2 is the Euclidean metric in (m, sigma).")
 
-    print(f"  1. Reduced Wasserstein Energy E(m,s)  : {E_reduced}")
-    print(f"  2. Wasserstein Gradient grad_W2(E)    : [{grad_m}, {grad_sigma}]")
-    print(f"  3. Unique Equilibrium State (m*, s*)  : m* = {m_star},  sigma_* = (2*alpha/(lambda + 2*k))^(1/4)")
-    print(f"  4. Full Thermal Curvature Lambda(tau) : {hess_sigma_thermal} (Residual = {res_thermal})")
-    print(f"  5. Restricted Wasserstein Hessian     : [[{H_mm}, {H_ms}], [{H_sm}, {H_ss}]]")
-    print(f"  6. Strong Geodesic Convexity Bound    : eta_1 = {H_mm} > 0,  eta_2 = {H_ss} >= lambda > 0")
-    print(f"  7. Equilibrium Curvature eta_2(s*)    : {H_ss_at_star} (Expected: 4*lambda + 8*k, Residual = {res_curvature})")
-    print(f"  8. Dissipation Law EP(m*, s*)         : -dE/dt = ||grad_W2 E||^2 >= 0  (At Equilibrium: {ep_at_equilibrium})")
-    print(f"  9. EVI Exponential Contraction Bound  : W_2(mu_t, mu_G*) <= exp(-lambda * t) * W_2(mu_0, mu_G*)")
-
-    verified = (res_thermal == 0) and (res_curvature == 0) and (ep_at_equilibrium == 0)
+    verified = (res_thermal == 0) and (res_curvature == 0) and (ep_at_equilibrium == 0) and (H_mm == lam)
     assert verified, "Theorem 3 verification failed!"
-    qed_badge("Gaussian Wasserstein submanifold is strictly lambda-strongly convex with exponential EVI contraction.")
+    qed_badge("E(m, sigma) is lambda-convex in chart coordinates. EVI contraction is not machine-checked.")
+    scope_note("Thermal equilibrium solves a different equation and is not the map inverted in Theorem 6.")
     return verified
 
 
@@ -272,8 +280,8 @@ def prove_theorem_3_wasserstein_convexity() -> bool:
 # ==============================================================================
 def prove_theorem_4_leo_anisotropic_tensor() -> bool:
     banner(
-        "THEOREM 4: LEO GEOMAGNETIC ANISOTROPIC FISHER FEEDBACK TENSOR",
-        "Addresses Assessor 2: Magnetospheric/Ionospheric B-field alignment & perpendicular phase-mixing suppression",
+        "THEOREM 4: ANISOTROPIC GAIN TENSOR SPECTRUM",
+        "Spectral projectors only. Not a Fisher metric and not a cyclotron frequency.",
     )
     Bx, By, Bz, c = sp.symbols("Bx By Bz c", real=True)
     a_para, a_perp = sp.symbols("alpha_para alpha_perp", positive=True, real=True)
@@ -296,29 +304,36 @@ def prove_theorem_4_leo_anisotropic_tensor() -> bool:
 
     # Test 3: Idempotence & Orthogonality of Magnetic Projectors (P_para * P_perp = 0)
     proj_orthogonality = sp.simplify(P_para * P_perp)
+    mu = sp.symbols("mu")
+    charpoly = sp.factor(alpha_tensor.charpoly(mu).as_expr())
+    expected_char = (mu - a_para) * (mu - a_perp) ** 2
+    res_char = sp.simplify(charpoly - expected_char)
 
-    print(f"  1. Anisotropic Tensor alpha(B)        : alpha_para*(b*b^T) + alpha_perp*(I - b*b^T)")
-    print(f"  2. Parallel Soliton Mode Residual     : alpha(B)*grad_|| - alpha_para*grad_|| = {list(res_para)}")
-    print(f"  3. Perpendicular Cyclotron Residual   : alpha(B)*grad_perp - alpha_perp*grad_perp = {list(res_perp)}")
-    print(f"  4. Projector Orthogonality (P_||*P_T) : {proj_orthogonality.tolist()}")
+    print(f"  1. Anisotropic gain alpha(B)          : alpha_para*(b*b^T) + alpha_perp*(I - b*b^T)")
+    print(f"  2. Parallel residual                  : {list(res_para)}")
+    print(f"  3. One perpendicular residual         : {list(res_perp)}")
+    print(f"  4. Projector orthogonality            : {proj_orthogonality.tolist()}")
+    print(f"  5. Characteristic polynomial residual : {res_char}")
 
     verified = (
         res_para == sp.zeros(3, 1)
         and res_perp == sp.zeros(3, 1)
         and proj_orthogonality == sp.zeros(3, 3)
+        and res_char == 0
     )
     assert verified, "Theorem 4 verification failed!"
-    qed_badge("Tensor alpha(B) strictly isolates field-aligned ion-acoustic solitons from perpendicular instabilities.")
+    qed_badge("Spectrum is alpha_parallel once and alpha_perp twice. Eigenvalues do not depend on |B|.")
+    scope_note("The cross-product probe vanishes when B is parallel to e_x. The characteristic polynomial covers that case.")
     return verified
 
 
 # ==============================================================================
-# THEOREM 5: SUB-ZERO SNR RECOVERY VIA WAVELET LSB ZERO-MOMENT ANNIHILATION
+# THEOREM 5: RICKER VANISHING MOMENTS
 # ==============================================================================
 def prove_theorem_5_subzero_snr_wavelet_lsb() -> bool:
     banner(
-        "THEOREM 5: MATHEMATICAL PROOF OF SUB-ZERO SNR RECOVERY (WAVELET LSB SIEVE)",
-        "Refutes Assessor 1 & 2: 'The claim of sub-zero SNR was striking but unsupported'",
+        "THEOREM 5: RICKER VANISHING MOMENTS",
+        "Orders 0 and 1 vanish. A decibel gain is reported separately and is not the identity.",
     )
     x = sp.Symbol("x", real=True)
     sigma_w = sp.Symbol("sigma_w", positive=True, real=True)
@@ -344,7 +359,7 @@ def prove_theorem_5_subzero_snr_wavelet_lsb() -> bool:
     print(f"  2. 0th Moment Integral int psi(x) dx  : {moment_0}  (Annihilates DC / Chapman Offset C0)")
     print(f"  3. 1st Moment Integral int x*psi dx   : {moment_1}  (Annihilates Linear Tidal Gradient C1*x)")
     print(f"  4. Macro Carrier Projection <C0+C1x,p>: {C_GREEN}{C_BOLD}{macro_annihilation}{C_RESET}  (100% Analytical Annihilation)")
-    print(f"  5. Soliton Matched Inner Product      : {soliton_response} > 0  (Strictly Preserves Soliton Topology)")
+    print(f"  5. Gaussian-proxy inner product       : {soliton_response} > 0  (not a sech^2 soliton)")
 
     # Numerical Verification of Sub-Zero SNR Processing Gain
     rng = np.random.default_rng(42)
@@ -381,22 +396,34 @@ def prove_theorem_5_subzero_snr_wavelet_lsb() -> bool:
 
     peak_sig_power = np.max(corr_sig[win_mask]) ** 2
     var_noise_power = np.var(corr_noise[win_mask])
-    snr_post_db = 10.0 * np.log10(peak_sig_power / (var_noise_power + 1e-12))
-    processing_gain_db = snr_post_db - snr_raw_db
+    snr_post_mixed_db = 10.0 * np.log10(peak_sig_power / (var_noise_power + 1e-12))
+    mixed_gain_db = snr_post_mixed_db - snr_raw_db
+    snr_post_mean_db = 10.0 * np.log10(
+        np.mean(sig_lsb[win_mask] ** 2) / (np.mean(noise_lsb[win_mask] ** 2) + 1e-12)
+    )
+    mean_gain_db = snr_post_mean_db - snr_raw_db
+    raw_peak_var_db = 10.0 * np.log10(
+        np.max(clean_soliton[win_mask]) ** 2 / (np.var(macro_clutter[win_mask]) + 1e-12)
+    )
+    peak_gain_db = snr_post_mixed_db - raw_peak_var_db
+    dc_fraction = float(np.mean(macro_clutter[win_mask]) ** 2 / p_noise_raw)
 
-    print(f"  6. Empirical Raw Sensor Input SNR     : {C_RED}{C_BOLD}{snr_raw_db:+.2f} dB (Deep Sub-Zero SNR Regime){C_RESET}")
-    print(f"  7. Post-Wavelet LSB Matched Output SNR: {C_GREEN}{C_BOLD}{snr_post_db:+.2f} dB{C_RESET}")
-    print(f"  8. Total Topological Processing Gain  : {C_CYAN}{C_BOLD}{processing_gain_db:+.2f} dB{C_RESET}")
+    print(f"  6. Raw mean-power SNR (window)        : {snr_raw_db:+.2f} dB  (includes DC clutter)")
+    print(f"  7. Mixed-definition post SNR          : {snr_post_mixed_db:+.2f} dB  (not the same functional)")
+    print(f"  8. Mixed-definition difference        : {mixed_gain_db:+.2f} dB  (not a processing gain)")
+    print(f"  9. Consistent mean-power gain         : {mean_gain_db:+.2f} dB")
+    print(f" 10. Consistent peak^2/variance gain    : {peak_gain_db:+.2f} dB")
+    print(f" 11. DC fraction of raw clutter power   : {dc_fraction:.3f}")
 
     verified = (
         moment_0 == 0
         and moment_1 == 0
         and macro_annihilation == 0
-        and snr_raw_db < -10.0
-        and snr_post_db > 10.0
+        and bool(soliton_response.is_positive)
     )
     assert verified, "Theorem 5 verification failed!"
-    qed_badge(f"Wavelet LSB sieve achieves +{processing_gain_db:.1f} dB gain, converting {snr_raw_db:.1f} dB sub-zero SNR into +{snr_post_db:.1f} dB lock.")
+    qed_badge("Vanishing moments of order 0 and 1 hold. Affine trends are annihilated on the infinite line.")
+    scope_note("Order-2 moment does not vanish. The numerical carrier is not affine. Decibel figures are not a theorem.")
     return verified
 
 
@@ -405,8 +432,8 @@ def prove_theorem_5_subzero_snr_wavelet_lsb() -> bool:
 # ==============================================================================
 def prove_theorem_6_debris_potential_inversion() -> bool:
     banner(
-        "THEOREM 6: EXACT BIJECTIVE INVERSION OF DEBRIS POTENTIAL (V_debris)",
-        "Proves physical debris characterization (potential depth, charge, mass) from JKO equilibrium width",
+        "THEOREM 6: LEFT INVERSE OF THE SCALAR WIDTH MAP",
+        "Recovers lambda given alpha and k. Does not recover charge, mass, or a general V(x).",
     )
     sigma_star = sp.Symbol("sigma_star", positive=True, real=True)
     lam = sp.Symbol("lambda_debris", positive=True, real=True)
@@ -421,6 +448,7 @@ def prove_theorem_6_debris_potential_inversion() -> bool:
 
     # Substitute forward_sigma into inverted_lam to prove exact identity f^-1(f(lambda)) == lambda
     roundtrip_identity = sp.simplify(inverted_lam.subs(sigma_star, forward_sigma) - lam)
+    rel_condition = sp.simplify((sigma_star / inverted_lam) * sp.diff(inverted_lam, sigma_star))
 
     # Numerical precision verification matching soliton_debris_tracker.py
     alpha_val, k_val, obs_sigma = 2.5, 0.8, 0.62
@@ -429,14 +457,15 @@ def prove_theorem_6_debris_potential_inversion() -> bool:
     num_error = abs(obs_sigma - recomputed_sigma)
 
     print(f"  1. Forward Equilibrium Map sigma_*(l) : sigma_* = {forward_sigma}")
-    print(f"  2. Symbolic Inverse Map lambda(s*)    : lambda_debris = {inverted_lam}")
-    print(f"  3. Symbolic Bijective Identity Check  : lambda(sigma_*(lambda)) - lambda = {C_GREEN}{C_BOLD}{roundtrip_identity}{C_RESET}")
-    print(f"  4. Numerical Benchmark (s* = 0.62000) : lambda_debris = {lam_num:.5f} | Recomputed s* = {recomputed_sigma:.5f}")
-    print(f"  5. Floating-Point Inversion Error     : {C_GREEN}{C_BOLD}{num_error:.6e}{C_RESET}")
+    print(f"  2. Left-inverse residual              : lambda(sigma_*(lambda)) - lambda = {C_GREEN}{C_BOLD}{roundtrip_identity}{C_RESET}")
+    print(f"  4. Numerical benchmark (s* = 0.62000) : lambda = {lam_num:.5f} | recomputed s* = {recomputed_sigma:.5f}")
+    print(f"  5. Floating-point inversion error      : {C_GREEN}{C_BOLD}{num_error:.6e}{C_RESET}")
+    print(f"  6. Relative condition d(log lambda)/d(log sigma): {rel_condition}")
 
     verified = (roundtrip_identity == 0) and (num_error < 1e-14)
     assert verified, "Theorem 6 verification failed!"
-    qed_badge("Equilibrium soliton width uniquely and bijectively recovers external debris potential lambda_debris.")
+    qed_badge("lambda(sigma_*(lambda)) = lambda on the positive domain, given alpha and k.")
+    scope_note("This is not inverse scattering, and it is not the KdV width-amplitude relation.")
     return verified
 
 
@@ -930,12 +959,12 @@ class SINTRA_MHT_v18:
 
 
 # ==============================================================================
-# THEOREM 7: LIVE SUB-ZERO SNR MONTE CARLO & STATISTICAL SIGNIFICANCE AUDIT
+# THEOREM 7: LABELED MONTE CARLO REPORT
 # ==============================================================================
 def prove_theorem_7_empirical_statistical_rigor() -> bool:
     banner(
-        "THEOREM 7: LIVE EMPIRICAL MONTE CARLO & NON-PARAMETRIC STATISTICAL AUDIT",
-        "Refutes Claim: '100% track survival under sub-zero SNR and sub-km accuracy are unsubstantiated'",
+        "THEOREM 7: LABELED MONTE CARLO REPORT",
+        "Simulation only. Global mean-power SNR is not local SNR. Not a custody proof.",
     )
     np.random.seed(42)
     env = COSMIC_TEC_Hybrid_Environment()
@@ -961,6 +990,8 @@ def prove_theorem_7_empirical_statistical_rigor() -> bool:
         name: {"rmse_arr": [], "surv": []} for name in trackers_dict.keys()
     }
     raw_snr_db_list = []
+    local_snr_db_list = []
+    peak_snr_db_list = []
 
     mc_rng = np.random.default_rng(101)
 
@@ -1003,23 +1034,35 @@ def prove_theorem_7_empirical_statistical_rigor() -> bool:
                 raw_snr_db_list.append(
                     10.0 * np.log10(np.mean(target_sig**2) / np.mean(noise_only**2))
                 )
-
-            predicted_baseline = (
-                trial_ests["Wavelet + Const Pos"][-1] if frame > 0 else init_pos
-            )
-            z_meas = detector.get_measurement(
-                x_grid, obs_data, predicted_pos=predicted_baseline
-            )
+                local = np.abs(x_grid - true_pos) < (4.0 * rand_w)
+                local_snr_db_list.append(
+                    10.0
+                    * np.log10(
+                        np.mean(target_sig[local] ** 2)
+                        / (np.mean(noise_only[local] ** 2) + 1e-12)
+                    )
+                )
+                peak_snr_db_list.append(
+                    10.0
+                    * np.log10(rand_amp**2 / (np.var(noise_only[local]) + 1e-12))
+                )
+                z_init = detector.get_measurement(
+                    x_grid, obs_data, predicted_pos=init_pos
+                )
 
             for name, trk in active_trackers.items():
                 if frame == 0:
-                    trk.initialize(z_meas)
-                    est = z_meas
+                    trk.initialize(z_init)
+                    est = z_init
+                elif name == "SINTRA MHT v18":
+                    est = trk.step(x_grid, obs_data, dt)
                 else:
-                    if name == "SINTRA MHT v18":
-                        est = trk.step(x_grid, obs_data, dt)
-                    else:
-                        est = trk.step(z_meas, dt)
+                    z_meas = detector.get_measurement(
+                        x_grid,
+                        obs_data,
+                        predicted_pos=trial_ests[name][-1],
+                    )
+                    est = trk.step(z_meas, dt)
                 trial_ests[name].append(est)
 
         truth_arr = np.array(trial_truth)
@@ -1063,186 +1106,67 @@ def prove_theorem_7_empirical_statistical_rigor() -> bool:
     cd_pf = cliffs_delta(pf_rmse, sintra_rmse)
     cd_ema = cliffs_delta(ema_rmse, sintra_rmse)
     mean_snr_db = float(np.mean(raw_snr_db_list))
+    mean_local_snr_db = float(np.mean(local_snr_db_list))
+    mean_peak_snr_db = float(np.mean(peak_snr_db_list))
 
-    print(f"  1. Mean Ambient Sensor SNR Across Trials : {C_RED}{C_BOLD}{mean_snr_db:+.2f} dB (Verified Sub-Zero SNR Regime){C_RESET}")
-    print(f"  2. SINTRA MHT v18 Median Steady-State    : {C_GREEN}{C_BOLD}{med_sintra:.3f} km RMSE{C_RESET} | Track Survival: {C_GREEN}{C_BOLD}{surv_sintra:.1f}%{C_RESET}")
-    print(f"  3. Aerospace IMM (CV+CA) Baseline        : Mean = {C_RED}{mean_imm:.1f} km{C_RESET} (Med = {med_imm:.3f} km, Surv = {surv_imm:.1f}%) | Wilcoxon p = {p_imm:.3e} | Cliff's Delta = {cd_imm:+.3f}")
-    print(f"  4. Nonlinear Particle Filter Baseline    : Med  = {C_YELLOW}{med_pf:.1f} km{C_RESET} (Surv = {surv_pf:.1f}%) | Wilcoxon p = {p_pf:.3e} | Cliff's Delta = {cd_pf:+.3f}")
-    print(f"  5. Exponential Moving Average (EMA)      : Med  = {C_RED}{med_ema:.1f} km{C_RESET} (Surv = {surv_ema:.1f}%) | Wilcoxon p = {p_ema:.3e} | Cliff's Delta = {cd_ema:+.3f}")
+    print(f"  1. Global mean-power SNR              : {mean_snr_db:+.2f} dB  (full grid; not local SNR)")
+    print(f"  2. Local mean-power SNR (+/- 4 widths): {mean_local_snr_db:+.2f} dB")
+    print(f"  3. Peak^2 / local variance            : {mean_peak_snr_db:+.2f} dB")
+    print(f"  4. SINTRA median RMSE / last-frame survival : {med_sintra:.3f} km / {surv_sintra:.1f}%")
+    print(f"  5. Two-model bank, no state mixing    : mean {mean_imm:.1f} km, median {med_imm:.3f} km, survival {surv_imm:.1f}%, Cliff {cd_imm:+.3f}, p {p_imm:.3e}")
+    print(f"  6. Particle filter (R = 500 m)        : median {med_pf:.1f} km, survival {surv_pf:.1f}%, Cliff {cd_pf:+.3f}, p {p_pf:.3e}")
+    print(f"  7. EMA                                : median {med_ema:.1f} km, survival {surv_ema:.1f}%, Cliff {cd_ema:+.3f}, p {p_ema:.3e}")
+    print(f"  8. Source                             : {env.source_name}")
 
-    verified = (
-        med_sintra < 1.0
-        and surv_sintra == 100.0
-        and cd_pf > 0.5
-        and cd_ema > 0.7
+    finite = np.isfinite(sintra_rmse).all() and np.isfinite(mean_snr_db)
+    assert finite, "Theorem 7 report failed!"
+    scope_note(
+        "Report only. Survival is last-frame error < 5 km. "
+        "SINTRA and the detector are given the true width. "
+        "The template is the generative sech^2. This is not a proof."
     )
-    assert verified, "Theorem 7 verification failed!"
-    qed_badge(
-        f"100.0% track survival and {med_sintra:.3f} km median RMSE proven on COSMIC-1 data at {mean_snr_db:.1f} dB SNR."
-    )
-    return verified
+    return finite
 
 
-# ==============================================================================
-# MASTER EXECUTION & REVIEWER REBUTTAL AUDIT MATRIX
-# ==============================================================================
 def run_all_proofs():
     t0 = time.perf_counter()
     print(f"{C_MAGENTA}{C_BOLD}" + "#" * 100)
-    print(" IARPA SINTRA — FORMAL COMPUTER ALGEBRA & STATISTICAL VERIFICATION ENGINE")
-    print(" Executing Live Symbolic (SymPy) & Empirical (NumPy/SciPy) Proofs of All Manuscript Claims")
+    print(" SINTRA SYMBOLIC CHECKS AND LABELED SIMULATION")
+    print(" A zero residual checks an identity. It does not certify the old banner sentence.")
     print("#" * 100 + f"{C_RESET}")
 
     results = [
-        ("THM 1: Fluid-Poisson -> Forced KdV PDE", prove_theorem_1_reductive_perturbation()),
-        ("THM 2: Variational Hamiltonian Equivalence", prove_theorem_2_hamiltonian_equivalence()),
-        ("THM 3: Wasserstein Convexity & EVI Bound", prove_theorem_3_wasserstein_convexity()),
-        ("THM 4: LEO Anisotropic Fisher B-Tensor", prove_theorem_4_leo_anisotropic_tensor()),
-        ("THM 5: Wavelet LSB Sub-Zero SNR Sieve", prove_theorem_5_subzero_snr_wavelet_lsb()),
-        ("THM 6: Bijective Debris Potential Inversion", prove_theorem_6_debris_potential_inversion()),
-        ("THM 7: COSMIC-1 Sub-Zero SNR Monte Carlo", prove_theorem_7_empirical_statistical_rigor()),
+        ("THM 1: Cold-fluid forced KdV", "SymPy residual", prove_theorem_1_reductive_perturbation()),
+        ("THM 2: Gardner representation", "SymPy residual", prove_theorem_2_hamiltonian_equivalence()),
+        ("THM 3: Chart convexity of E", "SymPy Hessian", prove_theorem_3_wasserstein_convexity()),
+        ("THM 4: Gain-tensor spectrum", "SymPy charpoly", prove_theorem_4_leo_anisotropic_tensor()),
+        ("THM 5: Ricker moments 0 and 1", "SymPy integrals", prove_theorem_5_subzero_snr_wavelet_lsb()),
+        ("THM 6: Scalar left inverse", "SymPy residual", prove_theorem_6_debris_potential_inversion()),
+        ("THM 7: Monte Carlo report", "Simulation", prove_theorem_7_empirical_statistical_rigor()),
     ]
 
     elapsed = time.perf_counter() - t0
-    print(f"\n{C_GREEN}{C_BOLD}" + "=" * 100)
-    print(" FINAL IARPA REVIEWER REBUTTAL AUDIT MATRIX")
+    print("\n" + f"{C_GREEN}{C_BOLD}" + "=" * 100)
+    print(" CHECK MATRIX")
     print("=" * 100 + f"{C_RESET}")
-    print(f"  {'THEOREM / MATHEMATICAL CLAIM':<46} | {'METHODOLOGY':<28} | {'VERDICT'}")
+    print(f"  {'CHECK':<40} | {'METHOD':<18} | {'RESULT'}")
     print("  " + "-" * 96)
-    for name, passed in results:
-        status = (
-            f"{C_GREEN}{C_BOLD}VERIFIED (RESIDUAL = 0){C_RESET}"
-            if "THM 7" not in name and passed
-            else (
-                f"{C_GREEN}{C_BOLD}VERIFIED (100% SURVIVAL, <1km){C_RESET}"
-                if passed
-                else f"{C_RED}FAILED{C_RESET}"
-            )
-        )
-        method = "SymPy Exact CAS Proof" if "THM 7" not in name else "COSMIC-1 MC + Wilcoxon"
-        print(f"  {name:<46} | {method:<28} | {status}")
+    n_pass = 0
+    for name, method, passed in results:
+        if passed:
+            n_pass += 1
+            status = f"{C_GREEN}{C_BOLD}PASS{C_RESET}"
+        else:
+            status = f"{C_RED}FAILED{C_RESET}"
+        print(f"  {name:<40} | {method:<18} | {status}")
     print("  " + "-" * 96)
     print(
-        f"  {C_BOLD}ALL {len(results)}/7 FORMAL THEOREMS MACHINE-VERIFIED IN {elapsed:.2f} SECONDS. ZERO UNSUBSTANTIATED CLAIMS.{C_RESET}"
+        f"  {C_BOLD}{n_pass}/{len(results)} checks passed in {elapsed:.2f} s. "
+        "Theorem 7 is a report, not a proof."
+        f"{C_RESET}"
     )
     print(f"{C_GREEN}{C_BOLD}" + "=" * 100 + f"{C_RESET}\n")
 
 
 if __name__ == "__main__":
     run_all_proofs()
-
-
-
-
-
-
-
-# (base) brendanlynch@Brendans-Laptop SINTRA % python sintra_definitive_math_proof.py
-# ####################################################################################################
-#  IARPA SINTRA — FORMAL COMPUTER ALGEBRA & STATISTICAL VERIFICATION ENGINE
-#  Executing Live Symbolic (SymPy) & Empirical (NumPy/SciPy) Proofs of All Manuscript Claims
-# ####################################################################################################
-
-# ====================================================================================================
-#  THEOREM 1: MACROSCOPIC ION FLUID-POISSON TO FORCED KdV PDE
-#  Refutes Claim: 'Mixes unrelated mathematical constructs that do not align with real plasma modeling'
-# ====================================================================================================
-#   [*] Initializing symbolic cold-ion fluid-Poisson PDE system with debris forcing...
-#   1. O(eps^2) Boltzmann-Poisson Balance : n1(xi, tau) - phi1(xi, tau) = 0  ==>  n1 = phi1
-#   2. O(eps^3) Continuity Balance        : -V0*Derivative(n1(xi, tau), xi) + Derivative(u1(xi, tau), xi) = 0  ==>  u1 = V0 * n1
-#   3. O(eps^3) Momentum Balance          : -V0*Derivative(u1(xi, tau), xi) + Derivative(phi1(xi, tau), xi) = 0  ==>  (1 - V0^2)*d_xi(phi1) = 0 (V0 = 1)
-#   4. O(eps^4) Second-Order Closure n2   : n2 = -S(xi) + phi1(xi, tau)**2/2 + phi2(xi, tau) - Derivative(phi1(xi, tau), (xi, 2))
-#   5. O(eps^5) Algebraic Elimination PDE : 2*phi1(xi, tau)*Derivative(phi1(xi, tau), xi) + Derivative(S(xi), xi) + 2*Derivative(phi1(xi, tau), tau) + Derivative(phi1(xi, tau), (xi, 3)) = 0
-#   6. Target Forced KdV Equation         : 2*phi1(xi, tau)*Derivative(phi1(xi, tau), xi) + Derivative(S(xi), xi) + 2*Derivative(phi1(xi, tau), tau) + Derivative(phi1(xi, tau), (xi, 3)) = 0
-#   7. Symbolic Verification Residual     : 0
-#   [Q.E.D. // MACHINE VERIFIED] Macroscopic Ion Fluid-Poisson equations reduce identically to the Forced KdV Soliton PDE.
-
-# ====================================================================================================
-#  THEOREM 2: VARIATIONAL CALCULUS & HAMILTONIAN EQUIVALENCE
-#  Proves conservative Hamiltonian wave structure d_tau(phi) = d_xi(delta H / delta phi)
-# ====================================================================================================
-#   1. Hamiltonian Density L[phi, phi_xi] : -S(xi)*phi(xi, tau)/2 - phi(xi, tau)**3/6 + Derivative(phi(xi, tau), xi)**2/4
-#   2. Fréchet Derivative (delta H/dphi)  : -S(xi)/2 - phi(xi, tau)**2/2 - Derivative(phi(xi, tau), (xi, 2))/2
-#   3. Skew-Adjoint Flow 2*(phi_t - J*dH) : 2*phi(xi, tau)*Derivative(phi(xi, tau), xi) + Derivative(S(xi), xi) + 2*Derivative(phi(xi, tau), tau) + Derivative(phi(xi, tau), (xi, 3)) = 0
-#   4. Symbolic Verification Residual     : 0
-#   [Q.E.D. // MACHINE VERIFIED] Hamiltonian energy functional generates the exact Forced KdV soliton dynamics.
-
-# ====================================================================================================
-#  THEOREM 3: GAUSSIAN WASSERSTEIN SUBMANIFOLD, GEODESIC CONVEXITY & EVI CONTRACTION
-#  Refutes Claim: 'Claims of geodesic convexity guarantees are unsubstantiated'
-# ====================================================================================================
-#   1. Reduced Wasserstein Energy E(m,s)  : alpha/sigma**2 + k*sigma**2 + lambda*(m**2 + sigma**2)/2
-#   2. Wasserstein Gradient grad_W2(E)    : [lambda*m, (-2*alpha + sigma**4*(2*k + lambda))/sigma**3]
-#   3. Unique Equilibrium State (m*, s*)  : m* = 0,  sigma_* = (2*alpha/(lambda + 2*k))^(1/4)
-#   4. Full Thermal Curvature Lambda(tau) : 6*alpha/sigma**4 + 2*k + lambda + 1/(beta*sigma**2) (Residual = 0)
-#   5. Restricted Wasserstein Hessian     : [[lambda, 0], [0, 6*alpha/sigma**4 + 2*k + lambda]]
-#   6. Strong Geodesic Convexity Bound    : eta_1 = lambda > 0,  eta_2 = 6*alpha/sigma**4 + 2*k + lambda >= lambda > 0
-#   7. Equilibrium Curvature eta_2(s*)    : 8*k + 4*lambda (Expected: 4*lambda + 8*k, Residual = 0)
-#   8. Dissipation Law EP(m*, s*)         : -dE/dt = ||grad_W2 E||^2 >= 0  (At Equilibrium: 0)
-#   9. EVI Exponential Contraction Bound  : W_2(mu_t, mu_G*) <= exp(-lambda * t) * W_2(mu_0, mu_G*)
-#   [Q.E.D. // MACHINE VERIFIED] Gaussian Wasserstein submanifold is strictly lambda-strongly convex with exponential EVI contraction.
-
-# ====================================================================================================
-#  THEOREM 4: LEO GEOMAGNETIC ANISOTROPIC FISHER FEEDBACK TENSOR
-#  Addresses Assessor 2: Magnetospheric/Ionospheric B-field alignment & perpendicular phase-mixing suppression
-# ====================================================================================================
-#   1. Anisotropic Tensor alpha(B)        : alpha_para*(b*b^T) + alpha_perp*(I - b*b^T)
-#   2. Parallel Soliton Mode Residual     : alpha(B)*grad_|| - alpha_para*grad_|| = [0, 0, 0]
-#   3. Perpendicular Cyclotron Residual   : alpha(B)*grad_perp - alpha_perp*grad_perp = [0, 0, 0]
-#   4. Projector Orthogonality (P_||*P_T) : [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
-#   [Q.E.D. // MACHINE VERIFIED] Tensor alpha(B) strictly isolates field-aligned ion-acoustic solitons from perpendicular instabilities.
-
-# ====================================================================================================
-#  THEOREM 5: MATHEMATICAL PROOF OF SUB-ZERO SNR RECOVERY (WAVELET LSB SIEVE)
-#  Refutes Assessor 1 & 2: 'The claim of sub-zero SNR was striking but unsupported'
-# ====================================================================================================
-#   1. Ricker Wavelet Kernel psi(x)       : (1 - x**2/sigma_w**2)*exp(-x**2/(2*sigma_w**2))
-#   2. 0th Moment Integral int psi(x) dx  : 0  (Annihilates DC / Chapman Offset C0)
-#   3. 1st Moment Integral int x*psi dx   : 0  (Annihilates Linear Tidal Gradient C1*x)
-#   4. Macro Carrier Projection <C0+C1x,p>: 0  (100% Analytical Annihilation)
-#   5. Soliton Matched Inner Product      : sqrt(pi)*sigma_w/2 > 0  (Strictly Preserves Soliton Topology)
-#   6. Empirical Raw Sensor Input SNR     : -23.51 dB (Deep Sub-Zero SNR Regime)
-#   7. Post-Wavelet LSB Matched Output SNR: +21.45 dB
-#   8. Total Topological Processing Gain  : +44.96 dB
-#   [Q.E.D. // MACHINE VERIFIED] Wavelet LSB sieve achieves +45.0 dB gain, converting -23.5 dB sub-zero SNR into +21.5 dB lock.
-
-# ====================================================================================================
-#  THEOREM 6: EXACT BIJECTIVE INVERSION OF DEBRIS POTENTIAL (V_debris)
-#  Proves physical debris characterization (potential depth, charge, mass) from JKO equilibrium width
-# ====================================================================================================
-#   1. Forward Equilibrium Map sigma_*(l) : sigma_* = 2**(1/4)*alpha**(1/4)/(2*k + lambda_debris)**(1/4)
-#   2. Symbolic Inverse Map lambda(s*)    : lambda_debris = 2*alpha/sigma_star**4 - 2*k
-#   3. Symbolic Bijective Identity Check  : lambda(sigma_*(lambda)) - lambda = 0
-#   4. Numerical Benchmark (s* = 0.62000) : lambda_debris = 32.23789 | Recomputed s* = 0.62000
-#   5. Floating-Point Inversion Error     : 0.000000e+00
-#   [Q.E.D. // MACHINE VERIFIED] Equilibrium soliton width uniquely and bijectively recovers external debris potential lambda_debris.
-
-# ====================================================================================================
-#  THEOREM 7: LIVE EMPIRICAL MONTE CARLO & NON-PARAMETRIC STATISTICAL AUDIT
-#  Refutes Claim: '100% track survival under sub-zero SNR and sub-km accuracy are unsubstantiated'
-# ====================================================================================================
-#   [*] Executing 25-Trial Monte Carlo Benchmark on COSMIC-1 (podTec_C006.2019.001.18.29.0027.G06.01_2021.0390_nc)...
-#   1. Mean Ambient Sensor SNR Across Trials : -14.11 dB (Verified Sub-Zero SNR Regime)
-#   2. SINTRA MHT v18 Median Steady-State    : 0.699 km RMSE | Track Survival: 100.0%
-#   3. Aerospace IMM (CV+CA) Baseline        : Mean = 126.8 km (Med = 4.502 km, Surv = 100.0%) | Wilcoxon p = 5.960e-07 | Cliff's Delta = +0.430
-#   4. Nonlinear Particle Filter Baseline    : Med  = 142.3 km (Surv = 32.0%) | Wilcoxon p = 2.871e-04 | Cliff's Delta = +0.600
-#   5. Exponential Moving Average (EMA)      : Med  = 89.5 km (Surv = 0.0%) | Wilcoxon p = 1.355e-02 | Cliff's Delta = +0.760
-#   [Q.E.D. // MACHINE VERIFIED] 100.0% track survival and 0.699 km median RMSE proven on COSMIC-1 data at -14.1 dB SNR.
-
-# ====================================================================================================
-#  FINAL IARPA REVIEWER REBUTTAL AUDIT MATRIX
-# ====================================================================================================
-#   THEOREM / MATHEMATICAL CLAIM                   | METHODOLOGY                  | VERDICT
-#   ------------------------------------------------------------------------------------------------
-#   THM 1: Fluid-Poisson -> Forced KdV PDE         | SymPy Exact CAS Proof        | VERIFIED (RESIDUAL = 0)
-#   THM 2: Variational Hamiltonian Equivalence     | SymPy Exact CAS Proof        | VERIFIED (RESIDUAL = 0)
-#   THM 3: Wasserstein Convexity & EVI Bound       | SymPy Exact CAS Proof        | VERIFIED (RESIDUAL = 0)
-#   THM 4: LEO Anisotropic Fisher B-Tensor         | SymPy Exact CAS Proof        | VERIFIED (RESIDUAL = 0)
-#   THM 5: Wavelet LSB Sub-Zero SNR Sieve          | SymPy Exact CAS Proof        | VERIFIED (RESIDUAL = 0)
-#   THM 6: Bijective Debris Potential Inversion    | SymPy Exact CAS Proof        | VERIFIED (RESIDUAL = 0)
-#   THM 7: COSMIC-1 Sub-Zero SNR Monte Carlo       | COSMIC-1 MC + Wilcoxon       | VERIFIED (100% SURVIVAL, <1km)
-#   ------------------------------------------------------------------------------------------------
-#   ALL 7/7 FORMAL THEOREMS MACHINE-VERIFIED IN 39.68 SECONDS. ZERO UNSUBSTANTIATED CLAIMS.
-# ====================================================================================================
-
-# (base) brendanlynch@Brendans-Laptop SINTRA % 

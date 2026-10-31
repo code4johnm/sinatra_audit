@@ -1,9 +1,9 @@
-flowchart TD
-  omm["OMM JSON or built-in Keplerians"]
-  leo["propagate_omm_to_leo_state"]
-  wake["Wake width from altitude, inclination, and B-field"]
-  obs["COSMIC_TEC_Mission_Environment.observe"]
-  snr["Sub-zero SNR clutter on the sensor grid"]
+graph TD
+  omm[OMM JSON or built-in Keplerians]
+  leo[Propagate to a LEO state]
+  wake[Wake width from altitude inclination and B]
+  obs[Environment observe]
+  snr[Clutter on the sensor grid]
   ricker["Ricker LSB precondition"]
   trend["Local linear detrend"]
   stack["Moving-frame waveform stack"]

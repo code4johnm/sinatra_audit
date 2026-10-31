@@ -1,14 +1,17 @@
-flowchart TD
-  docker["Dockerfile"]
-  image["Image sinatra-sandbox:local"]
-  user["User 10001, read-only root, no published ports"]
-  launch["launch.py sets Agg and skips show"]
-  script["sintra_live_sky_catalog_interceptor.py"]
-  loop["Continuous cycle loop"]
-  png["HUD PNG on /output"]
-  dep["k8s/deployment.yaml"]
-  svc["k8s/service.yaml headless, port 9 unused"]
-  host["No cluster on this laptop"]
+graph TD
+  docker[Dockerfile]
+  image[Image sinatra-sandbox local]
+  user[User 10001 read-only root]
+  launch[launch.py sets Agg and skips show]
+  script[Sky-catalog interceptor]
+  loop[Continuous cycle]
+  png[HUD PNG on the output volume]
+  dep[Kubernetes Deployment]
+  svc[Headless Service unused port 9]
+  jobfile[Dockerfile.job]
+  jobimg[Image sinatra latest]
+  job[Kubernetes Job one shot]
+  outvol[PNG on the out volume]
 
   docker --> image
   image --> user
@@ -18,4 +21,6 @@ flowchart TD
   loop --> png
   dep --> image
   svc --> dep
-  host --> dep
+  jobfile --> jobimg
+  jobimg --> job
+  job --> outvol

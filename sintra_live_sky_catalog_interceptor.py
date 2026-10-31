@@ -14,8 +14,8 @@ Executes a live Hardware-in-the-Loop (HITL) Space Domain Awareness (SDA) demonst
      - Active LEO Payloads    : LANDSAT 8, STARLINK-1007
      - Kessler Debris Shrapnel: COSMOS 1408 DEB, FENGYUN 1C DEB, CZ-6A DEB
   3. Injects each live NORAD object's altitude- and B-field-coupled soliton wake
-     into authentic COSMIC-1 Level-1b ionospheric TEC clutter + synoptic macro-tides
-     at sub-zero SNR (-14.8 dB) with a blind +210 km Uncorrelated Track (UCT) offset.
+     into a COSMIC-1 or synthetic TEC background plus synoptic carriers.
+     The often-quoted -14.8 dB figure is a full-grid mean-power ratio, not a local SNR.
   4. True Blind Multi-Scale Inversion: SINTRA receives ZERO prior knowledge of
      target wake width. Coherent moving-frame waveform stacking measures the
      soliton scale directly from the noisy sensor stream to drive JKO relaxation
