@@ -6,8 +6,9 @@ graph TD
   script[Sky-catalog interceptor]
   loop[Continuous cycle]
   png[HUD PNG on the output volume]
+  web[Web HUD port 8080]
   dep[Kubernetes Deployment]
-  svc[Headless Service unused port 9]
+  svc[Service port 8080]
   jobfile[Dockerfile.job]
   jobimg[Image sinatra latest]
   job[Kubernetes Job one shot]
@@ -19,6 +20,7 @@ graph TD
   launch --> script
   script --> loop
   loop --> png
+  loop --> web
   dep --> image
   svc --> dep
   jobfile --> jobimg

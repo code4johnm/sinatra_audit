@@ -6,7 +6,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     MPLBACKEND=Agg \
     MPLCONFIGDIR=/tmp/mpl \
-    HOME=/tmp
+    HOME=/tmp \
+    SINTRA_HUD_PORT=8080
 
 RUN pip install \
     numpy==2.2.6 \
@@ -25,7 +26,10 @@ COPY sintra_cia_redacted_demo.py \
      sintra_definitive_math_proof.py \
      sintra_live_mission_demo.py \
      sintra_live_sky_catalog_interceptor.py \
+     sintra_web_hud.py \
      /opt/sinatra/
+
+EXPOSE 8080
 
 USER sinatra
 WORKDIR /output

@@ -50,6 +50,20 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
+try:
+    import sintra_web_hud as web_hud
+except ImportError:
+    web_hud = None
+
+
+def _hud(name, *args, **kwargs):
+    if web_hud is None:
+        return
+    try:
+        getattr(web_hud, name)(*args, **kwargs)
+    except Exception:
+        return
+
 # Compatibility wrapper for NumPy 2.x / Python 3.13 trapezoid integration
 trapz_fn = getattr(np, "trapezoid", getattr(np, "trapz", None))
 
@@ -910,6 +924,7 @@ def run_live_sky_interceptor():
         f"  -> Calibrated LEO O+ Cyclotron Freq Omega_i = {sw.omega_i_rad_s:.1f} rad/s | "
         f"Anisotropic Tensor Ratio (alpha_perp/alpha_||) = {C_YELLOW}{sw.anisotropy_ratio:.2f}x [REDACTED]{C_RESET}\n"
     )
+    _hud("note_weather", sw)
 
     # 2. Fetch Live NORAD / CelesTrak Catalog
     print(f"{C_CYAN}[*] Querying Live CelesTrak / NORAD GP Ephemeris Catalog (celestrak.org)...{C_RESET}")
@@ -924,6 +939,7 @@ def run_live_sky_interceptor():
     # 3. Load Authentic COSMIC-1 Ionospheric Background
     env = COSMIC_TEC_Mission_Environment()
     field_constants = FieldConstants(alpha=2.5, k=0.8)
+    _hud("note_catalog", targets, env)
 
     print(f"\n{C_CYAN}{C_BOLD}" + "=" * 118)
     print(
@@ -1048,6 +1064,28 @@ def run_live_sky_interceptor():
 
             debris_info = estimate_debris_profile(sigma_sin, field_constants)
             v_true_inst = tgt.orbital_velocity_ms + tgt.radial_accel_ms2 * t
+            _hud(
+                "note_frame",
+                {
+                    "norad_id": tgt.norad_id,
+                    "name": tgt.name,
+                    "frame": frame,
+                    "frames": frames_per_target,
+                    "e_sin": e_sin,
+                    "e_imm": e_imm,
+                    "e_pf": e_pf,
+                    "v_track": vel_sin,
+                    "v_true": v_true_inst,
+                    "sigma_m": sigma_sin,
+                    "sigma_true_m": tgt.true_wake_sigma_m,
+                    "lambda": debris_info.lambda_potential,
+                    "mass": debris_info.mass_profile_proxy,
+                    "klass": debris_info.inferred_class,
+                    "spark_sin": err_sin_h,
+                    "spark_imm": err_imm_h,
+                    "spark_pf": err_pf_h,
+                },
+            )
 
             if frame in (0, 8, 20, 32, frames_per_target - 1):
                 cls_color = (
@@ -1352,6 +1390,22 @@ def run_live_sky_interceptor():
                 final_debris.inferred_class,
             )
         )
+        _hud(
+            "note_target",
+            {
+                "norad_id": tgt.norad_id,
+                "name": tgt.name,
+                "altitude_km": tgt.altitude_km,
+                "true_sigma_m": tgt.true_wake_sigma_m,
+                "blind_sigma_m": sigma_sin,
+                "rmse_sin": steady_rmse_sin,
+                "rmse_imm": steady_rmse_imm,
+                "rmse_pf": steady_rmse_pf,
+                "lambda": final_debris.lambda_potential,
+                "mass": final_debris.mass_profile_proxy,
+                "klass": final_debris.inferred_class,
+            },
+        )
         print("-" * 118)
 
     # Final Redraw of Panel 4 with all 7 live catalog objects cleanly separated
@@ -1454,15 +1508,19 @@ def run_live_sky_interceptor():
     except OSError:
         pass
     print(f"[*] High-resolution CSpOC intercept snapshot saved to: {out_file}")
+    _hud("note_png", out_file)
     plt.ioff()
     plt.show()
 
 
 if __name__ == "__main__":
+    if web_hud is not None:
+        web_hud.start()
     cycle = 0
     while True:
         cycle += 1
         print(f"\n[*] Continuous cycle {cycle}")
+        _hud("note_cycle", cycle)
         run_live_sky_interceptor()
         plt.close("all")
 

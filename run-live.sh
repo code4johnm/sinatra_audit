@@ -21,11 +21,14 @@ then
     echo "uid 10001 cannot write output/. Using directory owner ${run_user}." >&2
 fi
 
+echo "Web HUD: http://127.0.0.1:8080"
 exec docker run --rm --name sinatra-live \
     --user "$run_user" --read-only --cap-drop ALL \
     --security-opt no-new-privileges \
     --pids-limit 128 --memory 4g --memory-swap 4g --cpus 2 \
     --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=512m \
+    -p 8080:8080 \
     -v "$PWD/output:/output" \
     -e MPLBACKEND=Agg -e MPLCONFIGDIR=/tmp/mpl -e HOME=/tmp \
+    -e SINTRA_HUD_PORT=8080 \
     -w /output sinatra-sandbox:local

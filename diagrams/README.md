@@ -35,6 +35,7 @@ graph TD
   jko[Width relaxation]
   debris[DebrisMetrics]
   hud[HUD PNG]
+  web[Web HUD]
 
   noaa --> sw
   noaa -.-> fallback
@@ -54,6 +55,7 @@ graph TD
   sigma --> jko
   jko --> debris
   debris --> hud
+  debris --> web
 ```
 
 ## Components

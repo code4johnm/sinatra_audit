@@ -53,5 +53,13 @@ if len(sys.argv) != 2:
     sys.exit(2)
 
 script = sys.argv[1]
+if os.path.basename(script) == "sintra_live_sky_catalog_interceptor.py":
+    sys.path.insert(0, os.path.dirname(os.path.abspath(script)))
+    try:
+        import sintra_web_hud
+
+        sintra_web_hud.start()
+    except Exception as exc:
+        sys.stderr.write(f"[hud] not started: {exc}\n")
 sys.argv = [script]
 runpy.run_path(script, run_name="__main__")

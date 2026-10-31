@@ -6,15 +6,14 @@ metadata:
     app: sinatra
   annotations:
     sinatra/note: >-
-      The live interceptor writes a HUD image and does not listen.
-      This Service is headless so the pods have a stable DNS name.
-      Port 9 is discard and is not served by the container.
+      Web HUD for the live interceptor. The terminal log and PNG still run.
+      Port 8080 serves the page. It is not authenticated.
 spec:
-  clusterIP: None
+  type: ClusterIP
   selector:
     app: sinatra
   ports:
-    - name: discard
-      port: 9
-      targetPort: 9
+    - name: hud
+      port: 8080
+      targetPort: hud
       protocol: TCP
