@@ -33,8 +33,6 @@ Kubernetes manifests are in `k8s/`. They expect the image name `sinatra-sandbox:
 kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
 ```
 
-There is no cluster on this laptop yet. `kubectl apply` does nothing until kubelet is installed.
-
 ## Expected output
 
 Each pass prints a cycle line, a catalog of seven objects, and a save line for the HUD PNG. The script then starts the next cycle. The PNG is overwritten each pass.
