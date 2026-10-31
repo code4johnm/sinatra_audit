@@ -154,7 +154,7 @@ The proof script checks identities. It does not prove sub-zero-SNR custody. See 
 
 ## Network
 
-The container does not listen. It uses outbound HTTP on port 80 and HTTPS on port 443 for the public data feeds. If those requests fail, the script uses its built-in values and still writes the HUD image. Git traffic for this repo is SSH on port 22. The host port list is `~/.local/share/network-baseline.md`.
+The container does not listen. It uses outbound HTTP on port 80 and HTTPS on port 443 for the public data feeds. If those requests fail, the script uses its built-in values and still writes the HUD image. Git traffic for this repo is SSH on port 22.
 
 ## Operational notes
 

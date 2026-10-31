@@ -4,7 +4,7 @@ Generated from local files. No network call and no language-model API.
 
 ## 1. Role
 
-Maintainer work for `/mnt/5TB/git/sinatra`.
+Maintainer work for this repository.
 
 ## 2. Project
 
