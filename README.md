@@ -12,11 +12,18 @@ Build the image from this directory:
 docker build -t sinatra-sandbox:local .
 ```
 
-Run it:
+Run it with `./run-live.sh`. The container has a read-only root filesystem and every capability dropped. It writes `sintra_live_norad_intercept_hud.png` into the `output/` bind mount. That mount has to be writable by the process uid. Filesystems such as NTFS/fuseblk ignore `chmod`, so a run as uid 10001 fails at `savefig` with `PermissionError: [Errno 13]` after the cycle finishes. The script keeps uid 10001 when that uid can write, and otherwise uses the directory owner.
 
 ```bash
+./run-live.sh
+```
+
+Equivalent steps:
+
+```bash
+mkdir -p output
 docker run --rm --name sinatra-live \
-  --user 10001:10001 --read-only --cap-drop ALL \
+  --user "$(stat -c '%u:%g' output)" --read-only --cap-drop ALL \
   --security-opt no-new-privileges \
   --pids-limit 128 --memory 4g --memory-swap 4g --cpus 2 \
   --tmpfs /tmp:rw,nosuid,nodev,mode=1777,size=512m \
@@ -25,7 +32,7 @@ docker run --rm --name sinatra-live \
   -w /output sinatra-sandbox:local
 ```
 
-Create `output/` first. The container writes `sintra_live_norad_intercept_hud.png` there.
+The PNG is written in `output/`. Kubernetes still runs as uid 10001: its `emptyDir` honors `fsGroup`, unlike this bind mount.
 
 Kubernetes manifests are in `k8s/`. They expect the image name `sinatra-sandbox:local` on the same machine (`imagePullPolicy: Never`).
 
@@ -165,8 +172,11 @@ To pick another script, set `SINTRA_SCRIPT=<file.py>` or pass the file name as t
 
 ```bash
 docker build -f Dockerfile.job -t sinatra:latest .
-docker run --rm -v "$PWD/out:/out" sinatra:latest
+mkdir -p out
+docker run --rm --user "$(stat -c '%u:%g' out)" -v "$PWD/out:/out" sinatra:latest
 ```
+
+`out/` has the same bind-mount constraint as `output/`. On a filesystem that ignores `chmod`, uid 10001 cannot write the PNG. The `--user` flag above is the directory owner. The Kubernetes Job still uses uid 10001 with an `emptyDir`.
 
 Load the image into a local cluster. The Job uses `imagePullPolicy: IfNotPresent`, so no registry is involved.
 

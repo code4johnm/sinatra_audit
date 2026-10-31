@@ -32,6 +32,22 @@ def _figure(*args, **kwargs):
 plt.figure = _figure
 plt.show = lambda *_args, **_kwargs: None
 
+
+def _require_writable_output():
+    """The sandbox uid cannot create the HUD PNG unless the workdir is writable."""
+    out_dir = os.path.abspath(os.environ.get("SINTRA_OUTPUT", os.getcwd()))
+    if not os.path.isdir(out_dir) or not os.access(out_dir, os.W_OK | os.X_OK):
+        sys.stderr.write(
+            f"output directory is not writable by uid {os.getuid()}: {out_dir}\n"
+            "NTFS/fuseblk bind mounts ignore chmod, so uid 10001 cannot be granted write.\n"
+            "Run as the directory owner, or use ./run-live.sh (it selects a uid that can write).\n"
+        )
+        sys.exit(13)
+    os.environ["SINTRA_OUTPUT"] = out_dir
+
+
+_require_writable_output()
+
 if len(sys.argv) != 2:
     sys.stderr.write("usage: launch.py /opt/sinatra/<script>.py\n")
     sys.exit(2)

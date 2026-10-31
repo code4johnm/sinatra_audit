@@ -1440,8 +1440,19 @@ def run_live_sky_interceptor():
         )
     print("=" * 124)
 
-    out_file = "sintra_live_norad_intercept_hud.png"
-    plt.savefig(out_file, dpi=300, facecolor=fig.get_facecolor())
+    out_dir = os.environ.get("SINTRA_OUTPUT", os.getcwd())
+    out_file = os.path.join(out_dir, "sintra_live_norad_intercept_hud.png")
+    try:
+        plt.savefig(out_file, dpi=300, facecolor=fig.get_facecolor())
+    except PermissionError as exc:
+        raise PermissionError(
+            f"cannot write {out_file} as uid {os.getuid()}; "
+            "run as the output directory owner (./run-live.sh does this)"
+        ) from exc
+    try:
+        os.chmod(out_file, 0o644)
+    except OSError:
+        pass
     print(f"[*] High-resolution CSpOC intercept snapshot saved to: {out_file}")
     plt.ioff()
     plt.show()
