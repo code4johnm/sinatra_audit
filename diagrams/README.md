@@ -20,7 +20,7 @@ Labels avoid slashes and parentheses. Mermaid treats a slash inside a node as a 
 graph TD
   noaa[NOAA space-weather JSON]
   cele[CelesTrak NORAD catalog]
-  cosmic[Local cosmic_data or synthetic Chapman curve]
+  cosmic[Local cosmic data or synthetic Chapman curve]
   sw[LiveSpaceWeather]
   fallback[Built-in IMF values]
   prop[Propagate OMM to a LEO state]
@@ -85,7 +85,7 @@ graph TD
   docker[Dockerfile]
   image[Image sinatra-sandbox local]
   user[User 10001 read-only root]
-  launch[launch.py sets Agg and skips show]
+  launch[Headless launcher sets Agg and skips show]
   script[Sky-catalog interceptor]
   loop[Continuous cycle]
   png[HUD PNG on the output volume]
