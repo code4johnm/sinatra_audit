@@ -1507,6 +1507,18 @@ def run_live_sky_interceptor():
         os.chmod(out_file, 0o644)
     except OSError:
         pass
+    web_name = "sintra_live_norad_intercept_hud_web.png"
+    if web_hud is not None:
+        web_name = getattr(web_hud, "WEB_PNG_NAME", web_name)
+    web_file = os.path.join(out_dir, web_name)
+    try:
+        plt.savefig(web_file, dpi=110, facecolor=fig.get_facecolor())
+        try:
+            os.chmod(web_file, 0o644)
+        except OSError:
+            pass
+    except OSError as exc:
+        print(f"[*] Web snapshot skipped: {exc}")
     print(f"[*] High-resolution CSpOC intercept snapshot saved to: {out_file}")
     _hud("note_png", out_file)
     plt.ioff()

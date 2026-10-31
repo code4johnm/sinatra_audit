@@ -19,6 +19,8 @@ ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 HOST = os.environ.get("SINTRA_HUD_HOST", "0.0.0.0")
 PORT = int(os.environ.get("SINTRA_HUD_PORT", "8080"))
 PNG_NAME = "sintra_live_norad_intercept_hud.png"
+WEB_PNG_NAME = "sintra_live_norad_intercept_hud_web.png"
+PNG_SIG = b"\x89PNG\r\n\x1a\n"
 
 PAGE = """<!DOCTYPE html>
 <html lang="en">
@@ -69,7 +71,7 @@ PAGE = """<!DOCTYPE html>
   main {
     display: grid;
     grid-template-columns: 280px 1fr 300px;
-    grid-template-rows: 280px 1fr 220px;
+    grid-template-rows: 280px 1fr 320px;
     gap: 10px;
     padding: 10px;
     height: calc(100vh - 57px);
@@ -98,8 +100,19 @@ PAGE = """<!DOCTYPE html>
   .table { grid-column: 1 / span 2; grid-row: 2; overflow: auto; }
   .stats { grid-column: 3; grid-row: 2; overflow: auto; }
   .logs { grid-column: 1 / span 2; grid-row: 3; }
-  .shot { grid-column: 3; grid-row: 3; }
-  .shot img { width: 100%; height: calc(100% - 22px); object-fit: cover; filter: grayscale(1) contrast(1.15); }
+  .shot { grid-column: 3; grid-row: 3; min-height: 300px; }
+  /* Fixed height: a percentage collapses to 0 in the web view when the
+     grid row is indefinite, so the PNG loads and never paints. */
+  .shot img {
+    display: none;
+    width: 100%;
+    height: 248px;
+    min-height: 248px;
+    object-fit: contain;
+    object-position: center;
+    background: #070a12;
+  }
+  .shot img.on { display: block; }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; white-space: nowrap; }
   th { color: var(--dim); font-weight: 500; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
@@ -127,6 +140,7 @@ PAGE = """<!DOCTYPE html>
   @media (max-width: 1100px) {
     main { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; }
     .sky, .wx, .active, .table, .stats, .logs, .shot { grid-column: 1; grid-row: auto; min-height: 220px; }
+    .shot { min-height: 300px; }
   }
 </style>
 </head>
@@ -168,7 +182,7 @@ PAGE = """<!DOCTYPE html>
   </section>
   <section class="card shot">
     <p class="k">Terminal snapshot</p>
-    <img id="shot" alt="Latest terminal HUD PNG" hidden>
+    <img id="shot" alt="Latest terminal HUD PNG" width="1200" height="720" decoding="sync">
     <p class="empty" id="shot-wait">PNG appears after the first cycle saves.</p>
   </section>
 </main>
@@ -317,10 +331,14 @@ function render(s) {
   if (stick) pre.scrollTop = pre.scrollHeight;
 
   const shot = $("shot");
-  if (s.png) {
-    const next = "/hud.png?v=" + encodeURIComponent(s.updated || s.png);
-    if (shot.getAttribute("src") !== next) shot.src = next;
+  const version = s.png_version || (s.png ? "ready" : "");
+  if (s.png && version) {
+    shot.classList.add("on");
     shot.hidden = false;
+    if (shot.dataset.v !== version) {
+      shot.dataset.v = version;
+      shot.src = "/hud.png?v=" + encodeURIComponent(version);
+    }
     $("shot-wait").hidden = true;
   }
   drawSky(cat, act);
@@ -398,6 +416,18 @@ function drawSpark(act) {
     g.stroke();
   });
 }
+const shotEl = $("shot");
+shotEl.addEventListener("load", () => {
+  if (shotEl.getAttribute("src")) {
+    shotEl.classList.add("on");
+    $("shot-wait").hidden = true;
+  }
+});
+shotEl.addEventListener("error", () => {
+  const wait = $("shot-wait");
+  wait.hidden = false;
+  wait.textContent = "Snapshot failed to load.";
+});
 async function tick() {
   try {
     const res = await fetch("/api/state", {cache: "no-store"});
@@ -429,6 +459,7 @@ class _State:
             "active": None,
             "summary": [],
             "png": None,
+            "png_version": None,
             "frames": 0,
         }
 
@@ -493,9 +524,123 @@ class _Tee:
         return self.stream.fileno()
 
 
+def _output_dir():
+    return os.environ.get("SINTRA_OUTPUT", os.getcwd())
+
+
 def _png_path():
-    directory = os.environ.get("SINTRA_OUTPUT", os.getcwd())
-    return os.path.join(directory, PNG_NAME)
+    return os.path.join(_output_dir(), PNG_NAME)
+
+
+def _complete_png(raw):
+    return (
+        isinstance(raw, (bytes, bytearray))
+        and len(raw) > 24
+        and raw.startswith(PNG_SIG)
+        and raw[-8:-4] == b"IEND"
+    )
+
+
+_png_lock = threading.Lock()
+_png_published = {"path": None, "version": None, "bytes": None}
+
+
+def _best_png_path():
+    """Prefer the web-sized snapshot once it is at least as new as the full file."""
+    directory = _output_dir()
+    web = os.path.join(directory, WEB_PNG_NAME)
+    full = os.path.join(directory, PNG_NAME)
+
+    def mtime(path):
+        try:
+            return os.stat(path).st_mtime_ns
+        except OSError:
+            return -1
+
+    web_m = mtime(web)
+    full_m = mtime(full)
+    if web_m >= 0 and web_m >= full_m:
+        return web
+    if full_m >= 0:
+        return full
+    return None
+
+
+def refresh_png():
+    """Publish the newest complete snapshot.
+
+    A cycle used to clear this and set it again only for the few milliseconds
+    between save and the next loop, so the page poll never requested the file.
+    A save still in progress is ignored and the last good image stays up.
+    """
+    path = _best_png_path()
+    if not path:
+        return
+    try:
+        st = os.stat(path)
+    except OSError:
+        return
+    if st.st_size < 32:
+        return
+    version = f"{st.st_mtime_ns}-{st.st_size}"
+    with _png_lock:
+        if _png_published["version"] == version and _png_published["bytes"]:
+            cached = True
+        else:
+            cached = False
+    if not cached:
+        try:
+            with open(path, "rb") as handle:
+                raw = handle.read()
+        except OSError:
+            return
+        if not _complete_png(raw):
+            return
+        with _png_lock:
+            _png_published["path"] = path
+            _png_published["version"] = version
+            _png_published["bytes"] = bytes(raw)
+    with STATE.lock:
+        STATE.data["png"] = os.path.basename(path)
+        STATE.data["png_version"] = version
+
+
+def _ensure_web_preview():
+    """Write a web-sized copy so the web view does not have to decode a 4650px PNG.
+
+    Runs on the caller thread. The HTTP thread only reads the finished file.
+    """
+    directory = _output_dir()
+    full = os.path.join(directory, PNG_NAME)
+    web = os.path.join(directory, WEB_PNG_NAME)
+    try:
+        full_m = os.stat(full).st_mtime_ns
+    except OSError:
+        return
+    try:
+        if os.stat(web).st_mtime_ns >= full_m and os.path.getsize(web) > 32:
+            return
+    except OSError:
+        pass
+    tmp = web + ".part"
+    try:
+        import matplotlib.image as mpimg
+
+        image = mpimg.imread(full)
+        step = max(1, int(math.ceil(max(image.shape[0], image.shape[1]) / 1400)))
+        small = image[::step, ::step]
+        # format is explicit: a .part suffix is not a PNG extension.
+        mpimg.imsave(tmp, small, format="png")
+        os.replace(tmp, web)
+        try:
+            os.chmod(web, 0o644)
+        except OSError:
+            pass
+    except Exception:
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -504,14 +649,22 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         return
 
-    def _send(self, code, body, content_type):
+    def _send(self, code, body, content_type, cache=False):
         payload = body if isinstance(body, bytes) else body.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", content_type)
-        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if cache:
+            self.send_header("Cache-Control", "private, max-age=86400")
+        else:
+            self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         self.wfile.write(payload)
+        try:
+            self.wfile.flush()
+        except OSError:
+            pass
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
@@ -522,6 +675,7 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(200, b'{"ok":true}', "application/json")
             return
         if path == "/api/state":
+            refresh_png()
             with STATE.lock:
                 payload = dict(STATE.data)
                 payload["logs"] = list(STATE.logs[-250:])
@@ -529,10 +683,11 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps(payload), "application/json")
             return
         if path == "/hud.png":
-            png = _png_path()
-            if os.path.isfile(png):
-                with open(png, "rb") as handle:
-                    self._send(200, handle.read(), "image/png")
+            refresh_png()
+            with _png_lock:
+                body = _png_published["bytes"]
+            if body:
+                self._send(200, body, "image/png", cache=True)
                 return
             self._send(404, b"png not ready", "text/plain; charset=utf-8")
             return
@@ -560,7 +715,10 @@ def start():
         server.daemon_threads = True
         threading.Thread(target=server.serve_forever, name="sintra-hud", daemon=True).start()
         _started = True
+        refresh_png()
         print(f"[hud] web view http://127.0.0.1:{PORT}")
+        _ensure_web_preview()
+        refresh_png()
 
 
 def note_cycle(cycle):
@@ -570,7 +728,6 @@ def note_cycle(cycle):
         STATE.data["active"] = None
         STATE.data["summary"] = []
         STATE.data["frames"] = 0
-        STATE.data["png"] = None
         _touch()
 
 
@@ -678,9 +835,11 @@ def note_target(row):
         STATE.data["phase"] = "classified"
         _touch()
 
-
 def note_png(path):
+    _ensure_web_preview()
+    refresh_png()
     with STATE.lock:
-        STATE.data["png"] = os.path.basename(path)
+        if path and not STATE.data.get("png"):
+            STATE.data["png"] = os.path.basename(path)
         STATE.data["phase"] = "saved"
         _touch()
