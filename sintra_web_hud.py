@@ -38,7 +38,7 @@ PAGE = """<!DOCTYPE html>
     --ice: #d7e4ff;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
+  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
   body {
     font-family: "Segoe UI", Helvetica, Arial, sans-serif;
     letter-spacing: 0.04em;
@@ -71,10 +71,11 @@ PAGE = """<!DOCTYPE html>
   main {
     display: grid;
     grid-template-columns: 280px 1fr 300px;
-    grid-template-rows: 280px 1fr 320px;
+    grid-template-rows: 220px auto auto auto;
     gap: 10px;
     padding: 10px;
-    height: calc(100vh - 57px);
+    height: auto;
+    min-height: calc(100vh - 57px);
   }
   .card {
     position: relative;
@@ -99,20 +100,22 @@ PAGE = """<!DOCTYPE html>
   .active { grid-column: 3; grid-row: 1; }
   .table { grid-column: 1 / span 2; grid-row: 2; overflow: auto; }
   .stats { grid-column: 3; grid-row: 2; overflow: auto; }
-  .logs { grid-column: 1 / span 2; grid-row: 3; }
-  .shot { grid-column: 3; grid-row: 3; min-height: 300px; }
-  /* Fixed height: a percentage collapses to 0 in the web view when the
-     grid row is indefinite, so the PNG loads and never paints. */
-  .shot img {
-    display: none;
+  .shot { grid-column: 1 / -1; grid-row: 3; overflow: visible; }
+  .logs { grid-column: 1 / -1; grid-row: 4; min-height: 220px; }
+  #stack { display: flex; flex-direction: column; gap: 18px; }
+  #stack canvas {
+    display: block;
     width: 100%;
-    height: 248px;
-    min-height: 248px;
-    object-fit: contain;
-    object-position: center;
+    height: auto;
     background: #070a12;
   }
-  .shot img.on { display: block; }
+  #shot {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
   table { width: 100%; border-collapse: collapse; font-size: 12px; }
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; white-space: nowrap; }
   th { color: var(--dim); font-weight: 500; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
@@ -132,15 +135,15 @@ PAGE = """<!DOCTYPE html>
   .klass.station { color: #fff; }
   .klass.payload { color: var(--ice); }
   pre {
-    margin: 0; height: calc(100% - 22px); overflow: auto;
+    margin: 0; height: 220px; overflow: auto;
     font: 11px/1.45 ui-monospace, Menlo, Consolas, monospace;
     color: #cfcfcf; white-space: pre-wrap; word-break: break-word;
   }
   .empty { color: var(--dim); font-size: 12px; }
   @media (max-width: 1100px) {
     main { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; }
-    .sky, .wx, .active, .table, .stats, .logs, .shot { grid-column: 1; grid-row: auto; min-height: 220px; }
-    .shot { min-height: 300px; }
+    .sky, .wx, .active, .table, .stats, .logs, .shot { grid-column: 1; grid-row: auto; min-height: 180px; }
+    .shot, .logs { min-height: 0; }
   }
 </style>
 </head>
@@ -176,14 +179,15 @@ PAGE = """<!DOCTYPE html>
     <p class="k">Dashboard</p>
     <div id="stats"></div>
   </section>
+  <section class="card shot">
+    <p class="k">Terminal snapshot</p>
+    <div id="stack"></div>
+    <img id="shot" alt="Latest terminal HUD PNG" width="1200" height="720">
+    <p class="empty" id="shot-wait">PNG appears after the first cycle saves.</p>
+  </section>
   <section class="card logs">
     <p class="k">Terminal log</p>
     <pre id="logs"></pre>
-  </section>
-  <section class="card shot">
-    <p class="k">Terminal snapshot</p>
-    <img id="shot" alt="Latest terminal HUD PNG" width="1200" height="720" decoding="sync">
-    <p class="empty" id="shot-wait">PNG appears after the first cycle saves.</p>
   </section>
 </main>
 <script>
@@ -332,16 +336,39 @@ function render(s) {
 
   const shot = $("shot");
   const version = s.png_version || (s.png ? "ready" : "");
-  if (s.png && version) {
-    shot.classList.add("on");
-    shot.hidden = false;
-    if (shot.dataset.v !== version) {
-      shot.dataset.v = version;
-      shot.src = "/hud.png?v=" + encodeURIComponent(version);
-    }
+  if (s.png && version && shot.dataset.v !== version) {
+    shot.dataset.v = version;
+    shot.src = "/hud.png?v=" + encodeURIComponent(version);
     $("shot-wait").hidden = true;
   }
   drawSky(cat, act);
+}
+function paintStack(img) {
+  const stack = $("stack");
+  const nw = img.naturalWidth;
+  const nh = img.naturalHeight;
+  if (!nw || !nh) return;
+  const panels = [
+    ["1. Live intercept", 0, 0, 0.544, 0.52],
+    ["3. Track error", 0.544, 0, 0.456, 0.52],
+    ["2. Kernel gate", 0, 0.52, 0.544, 0.48],
+    ["4. Mass fingerprint", 0.544, 0.52, 0.456, 0.48]
+  ];
+  stack.replaceChildren();
+  panels.forEach((p) => {
+    const label = document.createElement("p");
+    label.className = "k";
+    label.textContent = p[0];
+    const canvas = document.createElement("canvas");
+    const sx = Math.round(p[1] * nw);
+    const sy = Math.round(p[2] * nh);
+    const sw = Math.max(1, Math.round(p[3] * nw));
+    const sh = Math.max(1, Math.round(p[4] * nh));
+    canvas.width = sw;
+    canvas.height = sh;
+    canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    stack.append(label, canvas);
+  });
 }
 function drawSky(cat, act) {
   const c = $("sky");
@@ -418,10 +445,9 @@ function drawSpark(act) {
 }
 const shotEl = $("shot");
 shotEl.addEventListener("load", () => {
-  if (shotEl.getAttribute("src")) {
-    shotEl.classList.add("on");
-    $("shot-wait").hidden = true;
-  }
+  if (!shotEl.getAttribute("src")) return;
+  paintStack(shotEl);
+  $("shot-wait").hidden = true;
 });
 shotEl.addEventListener("error", () => {
   const wait = $("shot-wait");
@@ -546,23 +572,14 @@ _png_published = {"path": None, "version": None, "bytes": None}
 
 
 def _best_png_path():
-    """Prefer the web-sized snapshot once it is at least as new as the full file."""
+    """Prefer the full snapshot so stacked panels stay sharp."""
     directory = _output_dir()
-    web = os.path.join(directory, WEB_PNG_NAME)
     full = os.path.join(directory, PNG_NAME)
-
-    def mtime(path):
-        try:
-            return os.stat(path).st_mtime_ns
-        except OSError:
-            return -1
-
-    web_m = mtime(web)
-    full_m = mtime(full)
-    if web_m >= 0 and web_m >= full_m:
-        return web
-    if full_m >= 0:
+    web = os.path.join(directory, WEB_PNG_NAME)
+    if os.path.isfile(full):
         return full
+    if os.path.isfile(web):
+        return web
     return None
 
 
