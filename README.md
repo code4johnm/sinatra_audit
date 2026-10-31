@@ -1,8 +1,8 @@
 # Sinatra
 
-Private copy of the SINTRA live interceptor, packaged as a local container. The process does not listen on a port. It loops the sky-catalog script and writes a HUD image.
+Separte copy of the SINTRA live interceptor, packaged as a local container. The process does not listen on a port. It loops the sky-catalog script and writes a HUD image.
 
-Remote: `git@github.com:code4johnm/sinatra.git` (private).
+Remote: `git@github.com:code4johnm/sinatra.git` (pubic).
 
 ## How to run
 
