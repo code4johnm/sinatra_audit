@@ -105,7 +105,7 @@ PAGE = """<!DOCTYPE html>
   #stack { display: flex; flex-direction: column; gap: 18px; }
   #stack canvas {
     display: block;
-    width: 100%;
+    width: 50%;
     height: auto;
     background: #070a12;
   }
