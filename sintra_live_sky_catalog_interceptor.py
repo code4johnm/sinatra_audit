@@ -957,10 +957,7 @@ def run_live_sky_interceptor():
     plt.style.use("dark_background")
     plt.ion()
     issued = hud.utc_stamp(sw.timestamp_utc)
-    fig, gs = hud.open_figure(
-        "SINTRA LIVE ORBITAL INTERCEPTOR\n"
-        f"NOAA SWPC  {issued}    ·    NORAD GP CATALOG"
-    )
+    fig, gs = hud.open_figure("SINTRA LIVE ORBITAL INTERCEPTOR")
     try:
         fig.canvas.manager.set_window_title(
             "SINTRA — Live NORAD/CelesTrak + NOAA SWPC Sub-Zero SNR Orbital Interceptor"

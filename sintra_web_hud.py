@@ -349,9 +349,9 @@ function paintStack(img) {
   const nh = img.naturalHeight;
   if (!nw || !nh) return;
   const panels = [
-    ["1. Live intercept", 0.02, 0.055, 0.50, 0.455],
-    ["3. Track error", 0.545, 0.055, 0.435, 0.455],
+    ["1. Live intercept", 0.02, 0.088, 0.50, 0.422],
     ["2. Kernel gate", 0.02, 0.535, 0.50, 0.445],
+    ["3. Track error", 0.545, 0.088, 0.435, 0.422],
     ["4. Mass fingerprint", 0.545, 0.535, 0.435, 0.445]
   ];
   stack.replaceChildren();
