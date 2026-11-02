@@ -102,7 +102,7 @@ PAGE = """<!DOCTYPE html>
   .stats { grid-column: 3; grid-row: 2; overflow: auto; }
   .shot { grid-column: 1 / -1; grid-row: 3; overflow: visible; }
   .logs { grid-column: 1 / -1; grid-row: 4; min-height: 220px; }
-  #stack { display: flex; flex-direction: column; gap: 18px; }
+  #stack { display: flex; flex-direction: column; gap: 36px; }
   #stack canvas {
     display: block;
     width: 50%;
@@ -349,10 +349,10 @@ function paintStack(img) {
   const nh = img.naturalHeight;
   if (!nw || !nh) return;
   const panels = [
-    ["1. Live intercept", 0, 0, 0.544, 0.52],
-    ["3. Track error", 0.544, 0, 0.456, 0.52],
-    ["2. Kernel gate", 0, 0.52, 0.544, 0.48],
-    ["4. Mass fingerprint", 0.544, 0.52, 0.456, 0.48]
+    ["1. Live intercept", 0.02, 0.055, 0.50, 0.455],
+    ["3. Track error", 0.545, 0.055, 0.435, 0.455],
+    ["2. Kernel gate", 0.02, 0.535, 0.50, 0.445],
+    ["4. Mass fingerprint", 0.545, 0.535, 0.435, 0.445]
   ];
   stack.replaceChildren();
   panels.forEach((p) => {

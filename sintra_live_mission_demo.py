@@ -29,6 +29,7 @@ from typing import NamedTuple
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import sintra_hud_style as hud
 
 try:
     from netCDF4 import Dataset
@@ -777,27 +778,21 @@ def run_live_demonstration():
     # Configure Dark-Mode Matplotlib Tactical HUD
     plt.style.use("dark_background")
     plt.ion()
-    fig = plt.figure(figsize=(15, 9), facecolor="#0b0f19")
-    fig.canvas.manager.set_window_title(
-        "IARPA SINTRA — Wasserstein McKean-Vlasov Phase-Locked Tracker HUD"
+    fig, gs = hud.open_figure(
+        "IARPA SINTRA\n"
+        "LIVE GEOMETRIC ISOLATION OF HYPERVELOCITY SPACE DEBRIS SOLITONS"
     )
-    gs = gridspec.GridSpec(2, 2, height_ratios=[1.0, 1.0], width_ratios=[1.15, 1.0])
-    fig.subplots_adjust(
-        left=0.06, right=0.97, top=0.90, bottom=0.07, wspace=0.22, hspace=0.32
-    )
+    try:
+        fig.canvas.manager.set_window_title(
+            "IARPA SINTRA — Wasserstein McKean-Vlasov Phase-Locked Tracker HUD"
+        )
+    except Exception:
+        pass
 
-    fig.suptitle(
-        "IARPA SINTRA // LIVE GEOMETRIC ISOLATION OF HYPERVELOCITY SPACE DEBRIS SOLITONS",
-        fontsize=14,
-        fontweight="bold",
-        color="#00e5ff",
-        y=0.96,
-    )
-
-    ax_raw = fig.add_subplot(gs[0, 0], facecolor="#111827")
-    ax_lsb = fig.add_subplot(gs[1, 0], facecolor="#111827")
-    ax_err = fig.add_subplot(gs[0, 1], facecolor="#111827")
-    ax_jko = fig.add_subplot(gs[1, 1], facecolor="#111827")
+    ax_raw = hud.add_panel(fig, gs[0, 0])
+    ax_lsb = hud.add_panel(fig, gs[1, 0])
+    ax_err = hud.add_panel(fig, gs[0, 1])
+    ax_jko = hud.add_panel(fig, gs[1, 1])
 
     time_hist = []
     err_imm_hist = []
@@ -917,16 +912,11 @@ def run_live_demonstration():
             )
             ax_raw.set_xlim(x_km[0], x_km[-1])
             ax_raw.set_ylim(-25.0, 28.0)
-            ax_raw.set_title(
-                "1. Raw LEO Ionospheric Sensor Feed (Sub-Zero SNR — Soliton Buried in Macro-Tides)",
-                fontsize=10,
-                fontweight="bold",
-                color="#e5e7eb",
-            )
-            ax_raw.set_xlabel("Orbital Spatial Coordinate (km)", fontsize=9)
-            ax_raw.set_ylabel("TEC Amplitude (TECU)", fontsize=9)
-            ax_raw.legend(loc="upper right", fontsize=7.5, framealpha=0.4)
-            ax_raw.grid(True, color="#1f2937", lw=0.6)
+            hud.panel_title(ax_raw, "1.  Sensor feed")
+            ax_raw.set_xlabel("Orbital Spatial Coordinate (km)")
+            ax_raw.set_ylabel("TEC Amplitude (TECU)")
+            hud.park_legend(ax_raw, "upper left")
+            ax_raw.grid(True, color="#1f2937", lw=0.55)
 
             # --- PANEL 2: WAVELET LSB MANIFOLD & WASSERSTEIN GATE ---
             ax_lsb.cla()
@@ -960,16 +950,11 @@ def run_live_demonstration():
                 max(x_km[0], (true_pos / 1000.0) - 350.0),
                 min(x_km[-1], (true_pos / 1000.0) + 350.0),
             )
-            ax_lsb.set_title(
-                "2. Physical LSB Pre-Conditioner & Contracting Wasserstein Barycenter Gate",
-                fontsize=10,
-                fontweight="bold",
-                color="#e5e7eb",
-            )
-            ax_lsb.set_xlabel("Zoomed Regional Manifold Window (km)", fontsize=9)
-            ax_lsb.set_ylabel("LSB Response", fontsize=9)
-            ax_lsb.legend(loc="upper right", fontsize=7.5, framealpha=0.4)
-            ax_lsb.grid(True, color="#1f2937", lw=0.6)
+            hud.panel_title(ax_lsb, "2.  Manifold gate")
+            ax_lsb.set_xlabel("Zoomed Regional Manifold Window (km)")
+            ax_lsb.set_ylabel("LSB Response")
+            hud.park_legend(ax_lsb, "upper right")
+            ax_lsb.grid(True, color="#1f2937", lw=0.55)
 
             # --- PANEL 3: HEAD-TO-HEAD TRACKING ERROR ---
             ax_err.cla()
@@ -999,16 +984,11 @@ def run_live_demonstration():
             ax_err.set_yscale("log")
             ax_err.set_xlim(0, frames * dt)
             ax_err.set_ylim(0.01, 1500.0)
-            ax_err.set_title(
-                "3. Live Benchmark: Classical Estimator Collapse vs. SINTRA EVI Contraction",
-                fontsize=10,
-                fontweight="bold",
-                color="#e5e7eb",
-            )
-            ax_err.set_xlabel("Mission Time (seconds)", fontsize=9)
-            ax_err.set_ylabel("Absolute Position Error (km, Log Scale)", fontsize=9)
-            ax_err.legend(loc="upper right", fontsize=8, framealpha=0.4)
-            ax_err.grid(True, which="both", color="#1f2937", lw=0.6)
+            hud.panel_title(ax_err, "3.  Estimator error")
+            ax_err.set_xlabel("Mission Time (seconds)")
+            ax_err.set_ylabel("Absolute Position Error (km, log)")
+            hud.park_legend(ax_err, "lower right")
+            ax_err.grid(True, which="both", color="#1f2937", lw=0.55)
 
             # --- PANEL 4: JKO VARIANCE RELAXATION & INVERSE SOLITON TELEMETRY ---
             ax_jko.cla()
@@ -1027,17 +1007,12 @@ def run_live_demonstration():
                 label=f"Analytic Equilibrium sigma_* ({true_width/1000.0:.1f} km)",
             )
             ax_jko.set_xlim(0, frames * dt)
-            ax_jko.set_ylim(15.0, 105.0)
-            ax_jko.set_title(
-                "4. Gaussian Submanifold JKO Relaxation & Live Inverse Debris Characterization",
-                fontsize=10,
-                fontweight="bold",
-                color="#e5e7eb",
-            )
-            ax_jko.set_xlabel("Mission Time (seconds)", fontsize=9)
-            ax_jko.set_ylabel("Manifold Width sigma (km)", fontsize=9)
-            ax_jko.legend(loc="upper right", fontsize=8, framealpha=0.4)
-            ax_jko.grid(True, color="#1f2937", lw=0.6)
+            ax_jko.set_ylim(15.0, 118.0)
+            hud.panel_title(ax_jko, "4.  Scale contraction")
+            ax_jko.set_xlabel("Mission Time (seconds)")
+            ax_jko.set_ylabel("Manifold Width (km)")
+            hud.park_legend(ax_jko, "lower left")
+            ax_jko.grid(True, color="#1f2937", lw=0.55)
 
             debris_metrics = estimate_debris_profile(sigma_sintra, field_constants)
             true_v_now = true_v0 + true_acc * t
@@ -1053,22 +1028,7 @@ def run_live_demonstration():
                 f"Debris Mass Index    : {debris_metrics.mass_profile_proxy:8.3f}"
             )
             box_border = "#10b981" if locked else "#f59e0b"
-            ax_jko.text(
-                0.03,
-                0.42,
-                hud_box_text,
-                transform=ax_jko.transAxes,
-                fontsize=8.2,
-                fontfamily="monospace",
-                color="#f3f4f6",
-                bbox=dict(
-                    boxstyle="round,pad=0.5",
-                    facecolor="#090d16",
-                    edgecolor=box_border,
-                    lw=1.5,
-                    alpha=0.92,
-                ),
-            )
+            hud.telemetry_card(ax_jko, hud_box_text, edge=box_border)
 
             fig.canvas.draw()
             fig.canvas.flush_events()

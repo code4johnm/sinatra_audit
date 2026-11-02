@@ -37,6 +37,7 @@ import requests
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import sintra_hud_style as hud
 
 try:
     from netCDF4 import Dataset
@@ -955,27 +956,22 @@ def run_live_sky_interceptor():
     # Setup 4-Panel CSpOC Dark-Mode Tactical HUD
     plt.style.use("dark_background")
     plt.ion()
-    fig = plt.figure(figsize=(15.5, 9.2), facecolor="#070a12")
-    fig.canvas.manager.set_window_title(
-        "SINTRA — Live NORAD/CelesTrak + NOAA SWPC Sub-Zero SNR Orbital Interceptor"
+    issued = hud.utc_stamp(sw.timestamp_utc)
+    fig, gs = hud.open_figure(
+        "SINTRA LIVE ORBITAL INTERCEPTOR\n"
+        f"NOAA SWPC  {issued}    ·    NORAD GP CATALOG"
     )
-    gs = gridspec.GridSpec(2, 2, height_ratios=[1.0, 1.0], width_ratios=[1.15, 1.0])
-    fig.subplots_adjust(
-        left=0.06, right=0.97, top=0.89, bottom=0.07, wspace=0.22, hspace=0.33
-    )
+    try:
+        fig.canvas.manager.set_window_title(
+            "SINTRA — Live NORAD/CelesTrak + NOAA SWPC Sub-Zero SNR Orbital Interceptor"
+        )
+    except Exception:
+        pass
 
-    fig.suptitle(
-        f"SINTRA LIVE ORBITAL INTERCEPTOR // NOAA SWPC ({sw.timestamp_utc}) + NORAD GP CATALOG [METHODS REDACTED]",
-        fontsize=13.5,
-        fontweight="bold",
-        color="#00e5ff",
-        y=0.96,
-    )
-
-    ax_sky = fig.add_subplot(gs[0, 0], facecolor="#0d1322")
-    ax_gate = fig.add_subplot(gs[1, 0], facecolor="#090d16")
-    ax_err = fig.add_subplot(gs[0, 1], facecolor="#0d1322")
-    ax_class = fig.add_subplot(gs[1, 1], facecolor="#0d1322")
+    ax_sky = hud.add_panel(fig, gs[0, 0])
+    ax_gate = hud.add_panel(fig, gs[1, 0], face="#090d16")
+    ax_err = hud.add_panel(fig, gs[0, 1])
+    ax_class = hud.add_panel(fig, gs[1, 1])
 
     raw_detector = RawClassicalDetector(nominal_sigma=25000.0)
     sintra_engine = SINTRA_BlindMultiScale_Engine()
@@ -986,17 +982,8 @@ def run_live_sky_interceptor():
     characterized_potentials = []
     characterized_labels = []
     characterized_colors = []
-
-    # Staggered callout offsets so all 7 labels in Panel 4 are crystal clear
-    label_offsets = [
-        (-62, -16),
-        (8, 8),
-        (-52, 10),
-        (10, -12),
-        (10, 10),
-        (-55, -15),
-        (10, -12),
-    ]
+    class_xlim = (-4.0, 122.0)
+    class_ylim = (-80.0, 2520.0)
 
     frames_per_target = 48
     dt = 5.0
@@ -1138,17 +1125,15 @@ def run_live_sky_interceptor():
                     label="SINTRA UCT Lock",
                 )
                 ax_sky.set_xlim(x_km[0], x_km[-1])
-                ax_sky.set_ylim(-42.0, 44.0)
-                ax_sky.set_title(
-                    f"1. Live Intercept: [{tgt.norad_id}] {tgt.name} | Alt: {tgt.altitude_km:.1f} km | Sub-Pt: ({tgt.sub_lat_deg:+.1f} deg, {tgt.sub_lon_deg:+.1f} deg)",
-                    fontsize=9.5,
-                    fontweight="bold",
-                    color="#e2e8f0",
+                ax_sky.set_ylim(-42.0, 48.0)
+                hud.panel_title(
+                    ax_sky,
+                    f"1.  NORAD {tgt.norad_id}  ·  {tgt.name[:28]}",
                 )
-                ax_sky.set_xlabel("Orbital Track Coordinate (km)", fontsize=8.5)
-                ax_sky.set_ylabel("TEC Amplitude (TECU)", fontsize=8.5)
-                ax_sky.legend(loc="upper right", fontsize=7.5, framealpha=0.4)
-                ax_sky.grid(True, color="#1e293b", lw=0.6)
+                ax_sky.set_xlabel("Orbital Track Coordinate (km)")
+                ax_sky.set_ylabel("TEC Amplitude (TECU)")
+                hud.park_legend(ax_sky, "upper left")
+                ax_sky.grid(True, color="#1e293b", lw=0.55)
 
                 # --- PANEL 2: REDACTED BLACK-BOX KERNEL LOCK GATE ---
                 ax_gate.cla()
@@ -1172,38 +1157,16 @@ def run_live_sky_interceptor():
                     max(x_km[0], (true_pos / 1000.0) - 300.0),
                     min(x_km[-1], (true_pos / 1000.0) + 300.0),
                 )
-                ax_gate.set_ylim(0.0, 1.25)
-                ax_gate.set_title(
-                    f"2. [REDACTED // PROPRIETARY KERNEL] — NOAA B-Field Tensor Ratio: {sw.anisotropy_ratio:.2f}x",
-                    fontsize=9.5,
-                    fontweight="bold",
-                    color="#f59e0b",
-                )
-                ax_gate.set_xlabel("Zoomed Regional Capture Window (km)", fontsize=8.5)
-                ax_gate.set_ylabel("Normalized Lock Probability", fontsize=8.5)
-                ax_gate.legend(loc="upper right", fontsize=7.5, framealpha=0.4)
-                ax_gate.grid(True, color="#1e293b", lw=0.6)
-
-                ax_gate.text(
-                    0.50,
-                    0.53,
-                    f"PROPRIETARY KERNEL & TENSOR OPERATORS REDACTED\n"
-                    f"NOAA IMF B = ({sw.bx_nt:+.1f}, {sw.by_nt:+.1f}, {sw.bz_nt:+.1f}) nT | Omega_i = {sw.omega_i_rad_s:.1f} rad/s\n"
-                    f"INTEGRITY HASH: {sha256_short(f'{tgt.norad_id}_{frame}_{est_sin:.1f}')}",
-                    transform=ax_gate.transAxes,
-                    fontsize=8.3,
-                    fontfamily="monospace",
-                    fontweight="bold",
-                    color="#f59e0b",
-                    ha="center",
-                    va="center",
-                    bbox=dict(
-                        boxstyle="round,pad=0.5",
-                        facecolor="#05070c",
-                        edgecolor="#f59e0b",
-                        lw=1.4,
-                        alpha=0.90,
-                    ),
+                ax_gate.set_ylim(0.0, 1.38)
+                hud.panel_title(ax_gate, "2.  Kernel lock gate")
+                ax_gate.set_xlabel("Zoomed Regional Capture Window (km)")
+                ax_gate.set_ylabel("Normalized Lock Probability")
+                hud.park_legend(ax_gate, "lower right")
+                ax_gate.grid(True, color="#1e293b", lw=0.55)
+                hud.method_redacted_block(
+                    ax_gate,
+                    issued,
+                    sha256_short(f"{tgt.norad_id}_{frame}_{est_sin:.1f}"),
                 )
 
                 # --- PANEL 3: BLIND UCT RE-ACQUISITION ERROR ---
@@ -1234,16 +1197,11 @@ def run_live_sky_interceptor():
                 ax_err.set_yscale("log")
                 ax_err.set_xlim(0, frames_per_target * dt)
                 ax_err.set_ylim(0.01, 4000.0)
-                ax_err.set_title(
-                    f"3. Blind UCT Re-Acquisition (+210 km Offset): {tgt.name[:24]}",
-                    fontsize=9.5,
-                    fontweight="bold",
-                    color="#e2e8f0",
-                )
-                ax_err.set_xlabel("Intercept Time (seconds)", fontsize=8.5)
-                ax_err.set_ylabel("Position Error (km, Log Scale)", fontsize=8.5)
-                ax_err.legend(loc="upper right", fontsize=7.5, framealpha=0.4)
-                ax_err.grid(True, which="both", color="#1e293b", lw=0.6)
+                hud.panel_title(ax_err, f"3.  Track error  ·  {tgt.name[:22]}")
+                ax_err.set_xlabel("Intercept Time (seconds)")
+                ax_err.set_ylabel("Position Error (km, log)")
+                hud.park_legend(ax_err, "lower right")
+                ax_err.grid(True, which="both", color="#1e293b", lw=0.55)
 
                 # --- PANEL 4: PASSIVE MASS & POTENTIAL FINGERPRINTING ---
                 ax_class.cla()
@@ -1268,33 +1226,26 @@ def run_live_sky_interceptor():
                     alpha=0.07,
                     label="Hypervelocity Kessler Debris Regime",
                 )
-                if characterized_masses:
-                    ax_class.scatter(
-                        characterized_potentials,
-                        characterized_masses,
-                        c=characterized_colors,
-                        s=105,
-                        edgecolors="white",
-                        linewidths=1.2,
-                        zorder=5,
-                    )
-                    for i_pt, (px, py, lbl) in enumerate(
-                        zip(
-                            characterized_potentials,
-                            characterized_masses,
-                            characterized_labels,
-                        )
-                    ):
-                        ox, oy = label_offsets[i_pt % len(label_offsets)]
-                        ax_class.annotate(
-                            lbl,
-                            (px, py),
-                            textcoords="offset points",
-                            xytext=(ox, oy),
-                            fontsize=7.5,
-                            fontweight="bold",
-                            color="#e2e8f0",
-                        )
+                live_x = list(characterized_potentials) + [debris_info.lambda_potential]
+                live_y = list(characterized_masses) + [debris_info.mass_profile_proxy]
+                live_lbl = list(characterized_labels) + [
+                    f"{tgt.norad_id} ({tgt.name.split()[0]})"
+                ]
+                live_c = list(characterized_colors) + ["#f8fafc"]
+                ax_class.scatter(
+                    live_x,
+                    live_y,
+                    c=live_c,
+                    s=120,
+                    edgecolors="white",
+                    linewidths=1.2,
+                    zorder=5,
+                )
+                ax_class.set_xlim(*class_xlim)
+                ax_class.set_ylim(*class_ylim)
+                hud.spread_callouts(
+                    ax_class, live_x, live_y, live_lbl, xlim=class_xlim, ylim=class_ylim
+                )
 
                 cur_color = (
                     "#00e5ff"
@@ -1309,52 +1260,28 @@ def run_live_sky_interceptor():
                     [debris_info.lambda_potential],
                     [debris_info.mass_profile_proxy],
                     c=[cur_color],
-                    s=165,
+                    s=180,
                     marker="*",
                     edgecolors="yellow",
-                    linewidths=1.5,
+                    linewidths=1.4,
                     zorder=6,
                 )
-                ax_class.set_xlim(5.0, 84.0)
-                ax_class.set_ylim(0.0, 2250.0)
-                ax_class.set_title(
-                    "4. Blind Multi-Scale Soliton Fingerprinting (Potential Depth vs. Mass Index)",
-                    fontsize=9.5,
-                    fontweight="bold",
-                    color="#e2e8f0",
-                )
-                ax_class.set_xlabel(
-                    "Blind Inverted Confinement Potential lambda_debris", fontsize=8.5
-                )
-                ax_class.set_ylabel("Derived Mass Profile Index", fontsize=8.5)
-                ax_class.grid(True, color="#1e293b", lw=0.6)
+                hud.panel_title(ax_class, "4.  Mass fingerprint")
+                ax_class.set_xlabel("Blind inverted confinement potential")
+                ax_class.set_ylabel("Derived mass index")
+                hud.park_legend(ax_class, "upper left")
+                ax_class.grid(True, color="#1e293b", lw=0.55)
 
                 telem_box = (
-                    f"BLIND PASSIVE OBJECT FINGERPRINT [{tgt.norad_id}]\n"
-                    f"----------------------------------------------\n"
-                    f"Object Name       : {tgt.name[:24]}\n"
-                    f"Tracked Velocity  : {vel_sin:7.1f} m/s (True: {v_true_inst:7.1f} m/s)\n"
-                    f"Blind Measured s* : {sigma_sin:7.1f} m   (Truth: {tgt.true_wake_sigma_m:7.1f} m)\n"
-                    f"Potential (lambda): {debris_info.lambda_potential:7.3f}\n"
-                    f"Mass Index        : {debris_info.mass_profile_proxy:7.1f}\n"
-                    f"Inferred Regime   : {debris_info.inferred_class}"
+                    f"OBJECT  {tgt.norad_id}\n"
+                    f"────────────────────────\n"
+                    f"NAME    {tgt.name[:18]}\n"
+                    f"V       {vel_sin:7.1f} m/s\n"
+                    f"SCALE   {sigma_sin/1000.0:6.2f} km\n"
+                    f"MASS    {debris_info.mass_profile_proxy:7.1f}\n"
+                    f"CLASS   {debris_info.inferred_class.split()[0]}"
                 )
-                ax_class.text(
-                    0.03,
-                    0.47,
-                    telem_box,
-                    transform=ax_class.transAxes,
-                    fontsize=7.6,
-                    fontfamily="monospace",
-                    color="#f8fafc",
-                    bbox=dict(
-                        boxstyle="round,pad=0.45",
-                        facecolor="#05070c",
-                        edgecolor=cur_color,
-                        lw=1.4,
-                        alpha=0.92,
-                    ),
-                )
+                hud.telemetry_card(ax_class, telem_box, edge=cur_color, x=0.58, y=0.96)
 
                 fig.canvas.draw()
                 fig.canvas.flush_events()
@@ -1423,39 +1350,26 @@ def run_live_sky_interceptor():
         characterized_potentials,
         characterized_masses,
         c=characterized_colors,
-        s=130,
+        s=150,
         edgecolors="white",
         linewidths=1.3,
         zorder=5,
     )
-    for i_pt, (px, py, lbl) in enumerate(
-        zip(characterized_potentials, characterized_masses, characterized_labels)
-    ):
-        ox, oy = label_offsets[i_pt % len(label_offsets)]
-        ax_class.annotate(
-            lbl,
-            (px, py),
-            textcoords="offset points",
-            xytext=(ox, oy),
-            fontsize=7.8,
-            fontweight="bold",
-            color="#f8fafc",
-            arrowprops=dict(arrowstyle="-", color="#64748b", lw=0.6),
-        )
-    ax_class.set_xlim(5.0, 84.0)
-    ax_class.set_ylim(0.0, 2250.0)
-    ax_class.set_title(
-        "4. Completed Blind Multi-Scale Soliton Fingerprinting (7/7 Live NORAD Objects Classified)",
-        fontsize=9.5,
-        fontweight="bold",
-        color="#10b981",
+    ax_class.set_xlim(*class_xlim)
+    ax_class.set_ylim(*class_ylim)
+    hud.spread_callouts(
+        ax_class,
+        characterized_potentials,
+        characterized_masses,
+        characterized_labels,
+        xlim=class_xlim,
+        ylim=class_ylim,
     )
-    ax_class.set_xlabel(
-        "Blind Inverted Confinement Potential lambda_debris", fontsize=8.5
-    )
-    ax_class.set_ylabel("Derived Mass Profile Index", fontsize=8.5)
-    ax_class.legend(loc="upper left", fontsize=7.5, framealpha=0.5)
-    ax_class.grid(True, color="#1e293b", lw=0.6)
+    hud.panel_title(ax_class, "4.  Fingerprint  ·  7/7 NORAD objects", color="#10b981")
+    ax_class.set_xlabel("Blind inverted confinement potential")
+    ax_class.set_ylabel("Derived mass index")
+    hud.park_legend(ax_class, "upper left")
+    ax_class.grid(True, color="#1e293b", lw=0.55)
     fig.canvas.draw()
     fig.canvas.flush_events()
 
