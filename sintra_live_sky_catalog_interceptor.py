@@ -205,6 +205,7 @@ class LiveOrbitalTarget:
     radius_km: float = 0.0
     period_min: float = 0.0
     gmst_deg: float = 0.0
+    epoch_unix: float = 0.0
 
 
 def propagate_omm_to_leo_state(
@@ -226,9 +227,10 @@ def propagate_omm_to_leo_state(
 
     n_rad_s = n_rev_day * 2.0 * math.pi / 86400.0
     a_km = (MU_EARTH / (n_rad_s ** 2)) ** (1.0 / 3.0)
+    now = time.time()
 
     M_rad = math.radians(
-        mean_anom + (time.time() % 3600.0) * (n_rev_day * 360.0 / 86400.0)
+        mean_anom + (now % 3600.0) * (n_rev_day * 360.0 / 86400.0)
     )
     E = M_rad
     for _ in range(6):
@@ -246,7 +248,7 @@ def propagate_omm_to_leo_state(
     )
     u_lat = math.radians(argp) + true_anom
     sub_lat = math.degrees(math.asin(math.sin(math.radians(inc)) * math.sin(u_lat)))
-    gmst_deg = (time.time() / 240.0) % 360.0
+    gmst_deg = (now / 240.0) % 360.0
     sub_lon = (
         (
             raan
@@ -314,6 +316,7 @@ def propagate_omm_to_leo_state(
         radius_km=r_km,
         period_min=period_min,
         gmst_deg=gmst_deg,
+        epoch_unix=now,
         sub_lon_deg=sub_lon,
         true_wake_sigma_m=float(np.clip(wake_sigma, 19500.0, 33500.0)),
         true_wake_amp=wake_amp,

@@ -3,7 +3,7 @@
 
 Same process, same continuous cycle, same terminal lines. The page adds
 custody, space-weather, and error stats the terminal table does not chart.
-An orbit frame draws NORAD 44713 above Earth. Existing frames stay.
+The Earth frame draws every catalog satellite live. Existing frames stay.
 Stdlib only, so the locked-down image does not gain a dependency.
 """
 
@@ -37,11 +37,13 @@ PAGE = """<!DOCTYPE html>
     --line: #2a2a2a;
     --red: #ff3b30;
     --ice: #d7e4ff;
+    --track-font: "Segoe UI", Helvetica, Arial, sans-serif;
+    --track-num: ui-monospace, Menlo, Consolas, monospace;
   }
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; font-family: var(--track-font); }
   html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
   body {
-    font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+    font-family: var(--track-font);
     letter-spacing: 0.04em;
     background-image:
       linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
@@ -72,7 +74,7 @@ PAGE = """<!DOCTYPE html>
   main {
     display: grid;
     grid-template-columns: 280px 1fr 300px;
-    grid-template-rows: 220px 520px auto 200px auto auto auto;
+    grid-template-rows: minmax(560px, 64vh) 220px auto 200px 460px auto auto;
     gap: 10px;
     padding: 10px;
     height: auto;
@@ -95,23 +97,24 @@ PAGE = """<!DOCTYPE html>
     font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim);
     margin: 0 0 8px;
   }
-  .sky { grid-column: 2; grid-row: 1; padding: 8px; }
+  .orbit { grid-column: 1 / -1; grid-row: 1; padding: 8px; min-height: 560px; }
+  .sky { grid-column: 2; grid-row: 2; padding: 8px; }
   .sky canvas, .spark canvas, .orbit canvas, .bands canvas, .gtrack canvas {
     width: 100%; height: calc(100% - 22px); display: block;
   }
-  .wx { grid-column: 1; grid-row: 1; }
-  .active { grid-column: 3; grid-row: 1; }
-  .orbit { grid-column: 1 / span 2; grid-row: 2; padding: 8px; }
-  .idcard { grid-column: 3; grid-row: 2; overflow: auto; }
-  .elem { grid-column: 1; grid-row: 3; overflow: auto; }
-  .geom { grid-column: 2; grid-row: 3; overflow: auto; }
-  .record { grid-column: 3; grid-row: 3; overflow: auto; }
-  .bands { grid-column: 1 / span 2; grid-row: 4; padding: 8px; }
-  .gtrack { grid-column: 3; grid-row: 4; padding: 8px; }
-  .table { grid-column: 1 / span 2; grid-row: 5; overflow: auto; }
-  .stats { grid-column: 3; grid-row: 5; overflow: auto; }
-  .shot { grid-column: 1 / -1; grid-row: 6; overflow: visible; }
-  .logs { grid-column: 1 / -1; grid-row: 7; min-height: 220px; }
+  .orbit canvas, .gtrack canvas { touch-action: none; cursor: grab; }
+  .wx { grid-column: 1; grid-row: 2; }
+  .active { grid-column: 3; grid-row: 2; }
+  .idcard { grid-column: 1; grid-row: 3; overflow: auto; }
+  .elem { grid-column: 2; grid-row: 3; overflow: auto; }
+  .geom { grid-column: 3; grid-row: 3; overflow: auto; }
+  .record { grid-column: 1; grid-row: 4; overflow: auto; }
+  .bands { grid-column: 2 / span 2; grid-row: 4; padding: 8px; }
+  .gtrack { grid-column: 1 / -1; grid-row: 5; padding: 8px; }
+  .table { grid-column: 1 / span 2; grid-row: 6; overflow: auto; }
+  .stats { grid-column: 3; grid-row: 6; overflow: auto; }
+  .shot { grid-column: 1 / -1; grid-row: 7; overflow: visible; }
+  .logs { grid-column: 1 / -1; grid-row: 8; min-height: 220px; }
   #stack { display: flex; flex-direction: column; gap: 36px; }
   #stack canvas {
     display: block;
@@ -122,22 +125,30 @@ PAGE = """<!DOCTYPE html>
   #shot {
     position: absolute;
     width: 1px;
-    height: 1px;, .idcard .row, .elem .row, .geom .row, .record .row {
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .wx .row, .active .row, .stats .row, .idcard .row, .elem .row, .geom .row, .record .row {
     display: flex; justify-content: space-between; gap: 12px;
     font-size: 12px; padding: 3px 0; border-bottom: 1px solid #161616;
   }
-  .wx .row b, .active .row b, .stats .row b, .idcard .row b, .elem .row b, .geom .row b, .recordse: collapse; font-size: 12px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; white-space: nowrap; }
+  .wx .row b, .active .row b, .stats .row b, .idcard .row b, .elem .row b, .geom .row b, .record .row b {
+    font-weight: 500; font-variant-numeric: tabular-nums;
+    font-family: var(--track-num);
+  }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; white-space: nowrap; font-family: var(--track-font); }
   th { color: var(--dim); font-weight: 500; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
   tr.active-row td { background: #111; }
-  .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .num { font-variant-numeric: tabular-nums; font-family: var(--track-num); }
   .wx .row, .active .row, .stats .row {
     display: flex; justify-content: space-between; gap: 12px;
     font-size: 12px; padding: 3px 0; border-bottom: 1px solid #161616;
   }
   .wx .row b, .active .row b, .stats .row b {
     font-weight: 500; font-variant-numeric: tabular-nums;
-    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-family: var(--track-num);
   }
   .big { font-size: 28px; letter-spacing: 0.08em; margin: 4px 0 8px; }
   .klass { font-size: 11px; letter-spacing: 0.14em; }
@@ -146,10 +157,11 @@ PAGE = """<!DOCTYPE html>
   .klass.payload { color: var(--ice); }
   pre {
     margin: 0; height: 220px; overflow: auto;
-    font: 11px/1.45 ui-monospace, Menlo, Consolas, monospace;
+    font: 11px/1.45 var(--track-font);
+    letter-spacing: 0.04em;
     color: #cfcfcf; white-space: pre-wrap; word-break: break-word;
   }
-  .empty { color: var(--dim); font-size: 12px; }
+  .empty { color: var(--dim); font-size: 12px; font-family: var(--track-font); }
   @media (max-width: 1100px) {
     main { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; }
     .sky, .wx, .active, .table, .stats, .logs, .shot,
@@ -158,6 +170,7 @@ PAGE = """<!DOCTYPE html>
     }
     .orbit { min-height: 420px; }
     .shot, .logs { min-height: 0; }
+    .gtrack { min-height: 440px; }
   }
 </style>
 </head>
@@ -187,7 +200,7 @@ PAGE = """<!DOCTYPE html>
     <canvas id="spark" width="280" height="72"></canvas>
   </section>
   <section class="card orbit">
-    <p class="k" id="orbit-k">Orbit above Earth · 44713</p>
+    <p class="k" id="orbit-k">Earth view · all positions</p>
     <canvas id="orbit" width="1100" height="640"></canvas>
   </section>
   <section class="card idcard">
@@ -211,8 +224,8 @@ PAGE = """<!DOCTYPE html>
     <canvas id="bands" width="1100" height="160"></canvas>
   </section>
   <section class="card gtrack">
-    <p class="k">Ground track · 44713</p>
-    <canvas id="gtrack" width="420" height="160"></canvas>
+    <p class="k">Ground track · all positions</p>
+    <canvas id="gtrack" width="900" height="440"></canvas>
   </section>
   <section class="card table">
     <p class="k">Catalog · same sweep as the terminal</p>
@@ -234,6 +247,81 @@ PAGE = """<!DOCTYPE html>
   </section>
 </main>
 <script>
+const TRACK_FONT = '"Segoe UI", Helvetica, Arial, sans-serif';
+function hudFont(px) { return px + "px " + TRACK_FONT; }
+const TRACK_NUM = "ui-monospace, Menlo, Consolas, monospace";
+function hudNum(px) { return px + "px " + TRACK_NUM; }
+let clockSkew = 0;
+const liveState = { catalog: [], active: null };
+let pumpOn = false;
+function serverNow() { return Date.now() / 1000 + clockSkew; }
+function fade(hex, alpha) {
+  const raw = String(hex || "#888888").replace("#", "");
+  const h = raw.length === 3 ? raw.split("").map((c) => c + c).join("") : raw;
+  const n = parseInt(h, 16);
+  if (!Number.isFinite(n)) return "rgba(138,138,138," + alpha + ")";
+  return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + alpha + ")";
+}
+function wrap360(d) { return ((Number(d) % 360) + 360) % 360; }
+function satNow(t, nowSec) {
+  const fallback = {
+    lat: Number(t.lat) || 0,
+    lon: Number(t.lon) || 0,
+    r: Number(t.radius_km) || (RE_KM + Number(t.altitude_km || 0)),
+    alt: Number(t.altitude_km) || 0,
+    u: Number(t.arg_lat) || 0,
+    gmst: Number(t.gmst) || 0
+  };
+  if (!Number.isFinite(Number(t.inclination)) || !Number.isFinite(Number(t.mean_motion))) return fallback;
+  const n = Number(t.mean_motion) || 0;
+  const e = Number(t.eccentricity) || 0;
+  const a = Number(t.sma_km) || (RE_KM + Number(t.altitude_km || 550));
+  const epoch = Number(t.epoch_unix);
+  const dt = Number.isFinite(epoch) && epoch > 0 ? (nowSec - epoch) : 0;
+  const Mdeg = wrap360((Number(t.mean_anomaly) || 0) + dt * n * 360 / 86400);
+  const M = rad(Mdeg);
+  let E = M;
+  for (let i = 0; i < 6; i++) {
+    const den = 1 - e * Math.cos(E);
+    if (Math.abs(den) < 1e-9) break;
+    E = E - (E - e * Math.sin(E) - M) / den;
+  }
+  const r = a * (1 - e * Math.cos(E));
+  const nu = 2 * Math.atan2(
+    Math.sqrt(Math.max(0, 1 + e)) * Math.sin(E / 2),
+    Math.sqrt(Math.max(0, 1 - e)) * Math.cos(E / 2)
+  );
+  const nuDeg = wrap360(deg(nu));
+  const argp = Number(t.argp) || 0;
+  const u = wrap360(argp + nuDeg);
+  const inc = Number(t.inclination) || 0;
+  const raan = Number(t.raan) || 0;
+  const gmst = wrap360((Number(t.gmst) || 0) + dt * 1.5);
+  const lat = deg(Math.asin(Math.max(-1, Math.min(1, Math.sin(rad(inc)) * Math.sin(rad(u))))));
+  const dlon = deg(Math.atan2(Math.cos(rad(inc)) * Math.sin(rad(u)), Math.cos(rad(u))));
+  const lon = pyLon(raan, dlon, gmst);
+  return { lat: lat, lon: lon, r: r, alt: r - RE_KM, u: u, gmst: gmst, nu: nuDeg };
+}
+function liveFixes(cat) {
+  const now = serverNow();
+  return (cat || []).map((t) => Object.assign({ src: t }, satNow(t, now)));
+}
+function startLivePump() {
+  if (pumpOn) return;
+  pumpOn = true;
+  let last = 0;
+  function frame(ts) {
+    if (ts - last > 50) {
+      last = ts;
+      drawOrbit(liveState.catalog, liveState.active);
+      drawSky(liveState.catalog, liveState.active);
+      drawGround(liveState.catalog, liveState.active);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
 const $ = (id) => document.getElementById(id);
 function n(v, d) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return "—";
@@ -384,11 +472,12 @@ function render(s) {
     shot.src = "/hud.png?v=" + encodeURIComponent(version);
     $("shot-wait").hidden = true;
   }
-  drawSky(cat, act);
-  drawOrbit(cat, act);
+  if (s.server_unix) clockSkew = Number(s.server_unix) - Date.now() / 1000;
+  liveState.catalog = cat;
+  liveState.active = act;
   fillOrbitPanels(cat, act);
   drawBands(cat, act);
-  drawGround(cat, act);
+  startLivePump();
 }
 function paintStack(img) {
   const stack = $("stack");
@@ -451,6 +540,10 @@ function deg(r) { return r * 180 / Math.PI; }
 function wrap180(lon) {
   return ((Number(lon) + 180) % 360 + 360) % 360 - 180;
 }
+function pyLon(raan, dlon, gmst) {
+  const x = Number(raan) + Number(dlon) - Number(gmst) + 180;
+  return ((x % 360) + 360) % 360 - 180;
+}
 function byId(cat, id) {
   return (cat || []).find((t) => Number(t.norad_id) === Number(id)) || null;
 }
@@ -512,7 +605,7 @@ function ringPoints(inc, raan, argp, ecc, sma, gmst, steps) {
     const r = a * (1 - e * e) / (1 + e * Math.cos(rad(nu)));
     const lat = deg(Math.asin(Math.max(-1, Math.min(1, Math.sin(rad(i)) * Math.sin(rad(u))))));
     const dlon = deg(Math.atan2(Math.cos(rad(i)) * Math.sin(rad(u)), Math.cos(rad(u))));
-    pts.push({ lat: lat, lon: wrap180(O + dlon - g + 180), r: r, u: u });
+    pts.push({ lat: lat, lon: pyLon(O, dlon, g), r: r, u: u });
   }
   return pts;
 }
@@ -576,26 +669,619 @@ function strokeRing(g, proj, pts, scale, cx, cy, color, width, dash, back) {
   g.stroke();
   g.setLineDash([]);
 }
+const MASK_W = 720;
+const MASK_H = 360;
+const LAND_B64 = [
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD////+AAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////gAAAAH///",
+"/////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAB////////gAAB8P/////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////A/////////////8A/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAx////////B/////////////////AAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/8P//////g//////////",
+"///////AAAAAAAAAAAAAAAAAAAAHvgAAAAAAAAAAAAB/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAD//+gP///8P///////////////+AAAAAAAAAAAB//+AAAAAAHwAAAAAAAAAAAAAH//gAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAB////////gAf///////////////AAAAAAAAAD8/n//AAAAAAAAAAAAAAAAAAAAAB//4AA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgAAD//3//8AAD///////////////8AAAAAAAAAH//+AAAAA",
+"AAAAAAAAAAAAAAAAAAAP/7wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADgA/4+D/////+AP///////////",
+"/////4AAAAAAAAAD//+AAAAAAAAAAAAAAAAAAAAAAAAAAH/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AB+fgHg///8H/////////////////4AAAAAAAAAAf/x+AAAAAAAAAAAAAAAAAAAAAAAAAf+AAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAfwAAAB8AH3//AA/////////////////4AAAAAAAAAAB/h/gAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAAAAD//4AAB////////////////+AAAAAAAAAAD+AAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAB/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/gAMAAAH/4////AAP///////////",
+"/////AAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAAAAAH/+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wfwf",
+"AD/4D+AABwAAB////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAP/+AAAAAAAAAD////+AAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAA//H+D/4A/gA+AAAAAAA/////////////4AAAAAAAAAAAAAAAAAAAAAAAAAH/8AAAAAAAAD/////",
+"//gAAAAAAD//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///+APx+////wAAAAAAP////////////4AAAAAAAAAAAAAAAAAA",
+"AAAAAAD/8AAAAAAAAH////////AAAAAAAD//z+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAA+P///wAAAAAAB///////",
+"/////wAAAAAAAAAAAAAAAAAAAAAAAAH/AAAAAAAAB////////gAAAAAAAAcAAPAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/AAAA",
+"AAAAAAAAAAAAAAAAA////////////gAAAAAAAAAAAAAAAAAAAAAAAAf4AAAAAAAAD///////8AAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAH//wAAAAOM/+AYEQAAAAAAAf///////////wAAAAAAAAAAAAAAAAAAAAAAAB/wAAAAAAA/////////",
+"/+EAAAAAAAB4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//mAAHgf5/4fz//4AAAAAAP//////////wAAAAAAAAAAAAAAAAAAA",
+"AAAAAB/AAAAAAAB////////////8A/8AAAA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//++d+B/8/A///sAAAAAAAD//////",
+"////4AAAAAAAAAAAAAAAAAAAAAAAAP+AAAA/xgB////////////////AAADwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//v//+",
+"/A/++B///n+AAAAAAH//////////MAAAAAAAAAAAAAAAAAAAAAAAAP4AAAB/xx9////////////////AAAP//8AAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAf/f////gH+eB/////wAAAAAP//////////4AAAAAAAAAAAAAAAAAAAAAAAAf8AAAD/n///////////",
+"///////AwAH///gAAAAAAAAA+AAAAAADgAAAAAAAAAD8Af///gAB/g//////gAAAAAf/////////8AAAAAAAAAAAAAAAAAAA",
+"AAAAAD+AAAP/v//////////////////x//////8AAAAAAAADAAAAAAD//wAAAAAAAAAAH////4AB/wf/////8AAAAB7/////",
+"///9+AAAAAAAAAAAAAAA//gAAAAAAB/gAAf/z////////////////////////////gAAAAAAAAAAAB////+AAAAAAcAAAAf/",
+"//gB/4A//////wAAAD/////////wAAAAAAAAAAAAAAAz//gAAAAAAAAAAAP/z////////////////////////////wAAAAAA",
+"AAAAAD///////AAB//c8B/////w+fwAPhAf//4AAAD//////////gAAAAAAAAAAAAAP///3AAAAAAAAA8AP/3///////////",
+"/////////////////wAAD/+AAAAAAP////////D/////wf////B/v+QP+AH//8AAAAB////////8AAAAAAAAAAAAAB/////4",
+"AAAAAAAAf8D/3///////////////////////////////h//+wAAAH////////////////+/4OAAAH/8P/AH//gAAAAB/////",
+"///gAAAAAAAAAAAAAH//////8AAAADgOf/h/5///////////////////////////////////+AAAH/////////////////AD",
+"/gA/P/8f+AGP/8AAAAf///////gAAAAAAAAAAAAAAf///////gH4A/P/////9///////////////////////////////////",
+"/wAAA/////////////////H5//n///8//AfD//4AAAf//////gAAAAAAAAAAAAAAB////////8D8P///////4///////////",
+"/////////////////////////8AAAP///////////////////////////AeD//+AAA///////AAAAAAAAAAAAAAAD///////",
+"/+Hw////////z/////////////////////////////////////+AAD//////////////////////////8AAH///4AAf/////",
+"8AAAAAAAAAAAAAAAP////////+B/////////H//////////////////////////////////////wD4//////////////////",
+"///////4AAAP/x/wAA//////gAAA+GfgAAAAAAAAf//////4fx7/////////f///////////////////////////////////",
+"v//w///////////////////////////wAAAf/w/gAAf////wAAAB///gAAAAAAAA///4f//8AP//////////////////////",
+"////////////////////////gf4Af///////////////////////////AA///8OAAAH///8AAAAAH//4AAAAAAAB///wP//8",
+"Af//////////////////////////////////////////////AH4AH/v////////////////////////f4B////AAAAH///4A",
+"AAAAf//wAAAAAAAH///g///8fP/////////////////////////////////////////////+AAAAAAf/////////////////",
+"//////8f+AwP//wAAAH///4AAAAAH//AAAAAAAAP///j////P//////////////////////////////////////////////4",
+"AACAAAP///////////////////////A/vwAB//4AAAD///4AAAAAA/wAAAAAAAA///+P////////////////////////////",
+"///////////////////////8AAAeAD///////////////////////+AOAAAA//4AAAB///gAAAAAAAAAAAAAAAH///wf////",
+"///////////////////////////////////////////////8AAAAA////////////////////////wAA+AAAH8YAAAAf/+AA",
+"AAAAAAAAAAAAAA////A////////////////////////////////////////////////////+AAAAB///////////////////",
+"/////gAA4d/cAfAAAAAP/+AAAAAAAAAAAAAAAD////A///////////////////////////////////////////////7///+A",
+"AAAAD////////////////////////AAAAY//AAAAAAAH//AAAAAAAAAAAAAAAD///+Af////////////////////////////",
+"//////////////////z///gAAAAAD///////////////////////+AAAAA//wAAAAAAD/+AAAAAAAAAAAAAAAD///+A/////",
+"////////////////////////////////////////gfH//8AAAAAAB/////+/////////////////8AAAAA//+AAAAAAAH8AA",
+"AAAAAAAAAAAAAD////A/////////////////////////////////////////////Acf//wAAAAAAe/////8H////////////",
+"////4AAAAA//+AIAAAAAB8AAAAAAAAAAAAAAAD////gP4H/////////////////////////////////////////8AB//HAAA",
+"AAAAAB///PwAA///////////////4AAAAAf//AcAAAAAAAAAAAAAAAAAAAAAAD////wAAH//////////////////////////",
+"///////////////4AH5AAAAAAAAAAB//+MAAAH//////////////4AAAAB///A+AAAAAAAAAAAAAAAAAAAAAAD/3//gB////",
+"////////////////////////////////////w8P8AP4AAAAAAAAAAA3//AAAAB///////////////AAAAB///x/AAAAAAAAA",
+"AAAAAAAAAAAAAB/j/8AD///////////////////////////////////////wAAAAA/wAAAAAAAAAAAAP8AAAAAP/////////",
+"/////gAAAA/////gAAAAAAAAAAAAAAAAAAfAAAeD/8AA///////////////////////////////////////AAAAAB/gAAAAA",
+"AAAAAAAPzwAAAAAP/////////////gAAAAf////wAAAAAAAAAAAAAAAAAA+AAAAB/8AE////////////////////////////",
+"//////////+AAAAAf/wAAAAAAAAAAAAfPgAAAAAP/////////////2AAAAP////4AAAAAAAAAAAAAAAAAA/wAAAd/4A+////",
+"//////////////////////////////////4AAAAAf/4AAAAAAAAAAAB8GAAAAAAD//////////////4AAAP////4AAAAAAAA",
+"AAAAAAAAAB/wAAD4/4A///////////////////////////////////////gAAAAB//4AAAAAAAAAAAHwAAAAAAAB////////",
+"//////+AAAP////4AAAAAAAAAAAAAAAAAA/gAAD8fwA///////////////////////////////////////AAAAAB//4AAAAA",
+"AAAAAB/AAAAAAAAB///////////////wAAf/////AAAAAAAAAAAAAAAAAA/4AAD3+AA/////////////////////////////",
+"/////////8AAAAAB//AAAAAAAAAAAHgAAAAAAAAAf///////////////gB//////gAAAAAAAAAAAAAAAAAP4AADzgAA/////",
+"/////////////////////////////////wAAAAAD//AAAAAAAAAAA+AAAAAAAAAAP///////////////8P//////+AAAAAAA",
+"AAAAAAAAAfP8AABwADn//////////////////////////////////////gAAAAAB//AAAAAAAAAAAAAAAAAAAAAAH///////",
+"////////8H///////AAAAAAAAAAAAAAAB/h/AAB84////////////////////////////////////////8QMAAAB/4AAAAAA",
+"AAAAAAAAAAAAAAAHj///////////////8D///////gAAAAAAAAAAAAAAD/B/AAD/////////////////////////////////",
+"//////////+EAAAB/4AAAAAAAAAAAAAAAAAAAAADh///////////////8D///////4AAAAAAAAAAAAAAB/P/gD//////////",
+"///////////////////////////////////+AAAB/4AAAAAAAAAAAAAAAAAAAAABh///////////////+D///////4AAAAAA",
+"AAAAAAAAB/P/8H/////////////////////////////////////////////+AAAA+AAAAAAAAAAAAAAAAAAAAAAAwP//////",
+"/////////D///////4AAAAAAAAAAAAAAD+H/8P/////////////////////////////////////////////+AAAA+AAAAAAA",
+"AAAAAAAAAAAAAAAAAP///////////////n///////wAAAAAAAAAAAAAABwf/4f//////////////////////////////////",
+"///////////eAAAA8AAAAAAAAAAAAAAAAAAAAAAAAP//////////////////////+4AAAAAAAAAAAAAAAAH/5///////////",
+"///////////////////////////////////OAAAAYAAAAAAAAAAAAAAAAAAAAAAAAX//////////////////////xwAAAAAA",
+"AAAAAAAAAAP+H//////////////////////////////////////////////PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////",
+"//////////////B/DwAAAAAAAAAAAAAAAA6AP//////////////////////////////////////////////PAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAD3//////////////////+HAD4AAAAAAAAAAAAAAAAAI////////////////////////////////////",
+"//////////+PgAAAAAAAAAAAAAAAAAAAAAAAAAAAAB9//////////////////4A4H/wAAAAAAAAAAAAAAAAP////////////",
+"//////////////////////////////////+PgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAe//////////////////v8AP/gAAAAA",
+"AAAAAAAAAAH///////////////////////////////////////////////+cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM/////",
+"//////////////4AP/4AAAAAAAAAAAAAAAP///////////////////////////////////////////////8cAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAH///////////////////wAf/4AAAAAAAAAAAAAAAD/////////////////////////////////////",
+"//////////4MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////////////7/4AAP4AAAAAAAAAAAAAAAAf////////////",
+"//////////////////////////////////weAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////////////////+DAAwAAAAA",
+"AAAAAAAAAAAP////////////z/////////////////////////////////gfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////",
+"///////////////3AAAAAAAAAAAAAAAAAAAH//////////z8D/////////////////////////////////gLAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAD/////////////////////AAAAAAAAAAAAAAAAAAAH//////////g+H///////////////////////",
+"//////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////////////////P8AAAAAAAAAAAAAAAAAAAH////n/////B/",
+"/////////////////////////////////8AYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////////////8/gAAAAAAAA",
+"AAAAAAAAAAAH////h////8A8P////////////////////////////////4AcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////",
+"/////////////x8AAAAAAAAAAAAAAAAAAAAH//+/g////8AAB////////////////////////////////wAfIAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAH/////////////////+BwAAAAAAAAAAAAAAAAAAAAP//8P4f///8AAA///////////////////////",
+"/////////gA/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////////////8AAAAAAAAAAAAAAAAAAAA////xwP8H///4AA",
+"AP///////////////////////////////AD/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/////////////////4AAAAAAAAAAA",
+"AAAAAAAAB////gBn+B///wAAAD/////////////////////////////+AAH/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////",
+"////////////4AAAAAAAAAAAAAAAAAAAB////gBz/Af//wAAAB/////////////////////////////8AAHmAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAH/////////////////+AAAAAAAAAAAAAAAAAAAB////ABg/4H//4D/AB//////////////////////",
+"///////wAAHgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////////////+AAAAAAAAAAAAAAAAAAAAA///+AAAf8P//8P/",
+"4H/////////////////////////////wAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////////////+AAAAAAAAAAAA",
+"AAAAAAAAA///wADwD/P/jn/////////////////////////////////gAADwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////",
+"///////////wAAAAAAAAAAAAAAAAAAAAA///gADwB9v/j///////////////////////////////n//AAAHwAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAD////////////////wAAAAAAAAAAAAAAAAAAAAB///AADwAcH8B///////////////////////////",
+"///+Pn8AAADwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD////////////////gAAAAAAAAAAAAAAAAAAAAB///AADwAeD+D///",
+"///////////////////////////8OD4AAAHwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD////////////////AAAAAAAAAAAAA",
+"AAAAAAAAD///gAAAAcB+B//////////////////////////////wAD+AAAHgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/////",
+"///////////AAAAAAAAAAAAAAAAAAAAAA///AAAAAYA/D//////////////////////////////wAH/AAAPgAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAA///////////////+AAAAAAAAAAAAAAAAAAAAAA//+AAAA/gA/h///////////////////////////",
+"///8YD/AAAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////+AAAAAAAAAAAAAAAAAAAAAA//4AAA4PgA8A///",
+"////////////////////////////+AfgAE/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////+AAAAAAAAAAAAA",
+"AAAAAAAAAB/wB//8BgAeAf//////////////////////////////8A/gAP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////",
+"//////////+AAAAAAAAAAAAAAAAAAAAAABwA///8AAAAABj5////////////////////////////wA/gAP/AAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAH//////////////+AAAAAAAAAAAAAAAAAAAAAAAwD///8AAAAAAAA////////////////////////",
+"////AAfgAf/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////////+AAAAAAAAAAAAAAAAAAAAAAB/////8AAAB+ABx",
+"///////////////////////////+AA/g//+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////////4AAAAAAAAAAAAA",
+"AAAAAAAAAB/////8AAAAAADh///////////////////////////+AA8B//4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf///",
+"//////////gAAAAAAAAAAAAAAAAAAAAAAD/////4AAAAAAAB////////////////////////////gAAH+8AAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAH////////////+AAAAAAAAAAAAAAAAAAAAAAAP/////8AAAAAAAD////////////////////////",
+"////gAAOf4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD////////////8AAAAAAAAAAAAAAAAAAAAAAA//////+AAAAAAAD",
+"////////////////////////////wAA/6AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB////////////4AAAAAAAAAAAAAA",
+"AAAAAAAAB///////8AA4AAAH////////////////////////////4AAfYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///",
+"/////////gAAAAAAAAAAAAAAAAAAAAAAB////////gD+AAAH////////////////////////////4AAPAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAA////////////AAAAAAAAAAAAAAAAAAAAAAAD////////wH/4AAH////////////////////////",
+"////8AAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAef//////////AAAAAAAAAAAAAAAAAAAAAAAD////////4H//x+P",
+"////////////////////////////8AAOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAef//////////AAAAAAAAAAAAAAA",
+"AAAAAAAAD/////////n/////////////////////////////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOP/",
+"//////wf/AAAAAAAAAAAAAAAAAAAAAAAD///////////////////////////////////////////4AAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAPP///////wG/AAAAAAAAAAAAAAAAAAAAAAAD///////////////////j///////////////////",
+"////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADn/////4HwAfAAAAAAAAAAAAAAAAAAAAAAAH///////////////",
+"////h///////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB3/////gAAAPgAAAAAAAAAAAAAA",
+"AAAAAAAAP///////////////////h///////////////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB7/",
+"///+AAAAPgAAAAAAAAAAAAAAAAAAAAAA////////////////////w///////////////////////8AAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAH4////8AAAAPwAAAAAAAAAAAAAAAAAAAAAD///////////////7////wf//////////////////",
+"////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8f///8AAAAPwAAAAAAAAAAAAAAAAAAAAAH///////////////x",
+"////4H//////////////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+P///8AAAAHzwAAAAAAAAAAAAA",
+"AAAAAAAP///////////////w////+B4/////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPH",
+"///8AAAADwQAAAAAAAAAAAAAAAAAAAAf///////////////4////+AC/////////////////////AAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAHH///8AAAADwAAAAAAAAAAAAAAAAAAAAA////////////////4f////wG/////////////////",
+"////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHj///8AAAABwAAAAAAAAAAAAAAAAAAAAA////////////////8",
+"P////wOA/8f////////////////+MAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHh///4AAAAABgAAAAAAAAAAAAA",
+"AAAAAAA////////////////+P////gfAAAP////////////////8cAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABw",
+"///4AAAAABgAAAAAAAAAAAAAAAAAAAD////////////////+H////w/AAAP////////////////4cAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAA4P//4AAAAAAgAAAAAAAAAAAAAAAAAAAD////////////////+D//////4AAD/////////////",
+"///g8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcH//4AAAAAAAAAAAAAAAAAAAAAAAAAAH/////////////////",
+"B//////8AAB////////////////A4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//4AAAA/4AAAAAAAAAAAAAA",
+"AAAAAAH/////////////////B//////+AAA///////////////8A4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"D//4AAABz/gAAAAAAAAAAAAAAAAAAAP/////////////////w///////AAA///////3//////+gAQAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAD//4AAAAAPwAAAAAAAAAAAAAAAAAAAP/////////////////w//////+AAAf/////8D/////",
+"/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//8AA/gAD4AAAAAAAAAAAAAAAAAAAf/////////////////",
+"4//////+AAAP/////AD/////HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADAAAAAAAAAAAAAAAAB//8AB/gAB+AAAAAAAAAAAAA",
+"AAAAAAP/////////////////wf/////8AAAAf////gD////8HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAA",
+"D//+AB/AAAfwAAAAAAAAAAAAAAAAAAH/////////////////4P/////wAAAAf////AB////4AAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAB4AAAAAAAAAAAAAAAB///AD+AAAAH4AAAAAAAAAAAAAAAAAH/////////////////4H/////wAAAAf///8AAf///w",
+"PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAAA///AD+AAAAD/AAAAAAAAAAAAAAAAAH/////////////////",
+"4D/////wAAAAf///wAAf///wfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//gP+AAAAB/gAAAAAAAAAA",
+"AAAAAAH/////////////////4D/////AAAAAf///gAAf///weAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AH////8AAB4f8ngAAAAAAAAAAAAAAAH/////////////////+D/////AAAAAP///AAAP///4MAAAeAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAA////8AAAQAwAAAAAAAAAAAAAAAAAH//////////////////B////4AAAAAP//+AAAP///8",
+"AAAA+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///8AAAAAAAAAAAAAAAAAAAAAAAH/////////////////",
+"/A////4AAAAAP//8AAAH///8AAAA+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///8AAAAAAAAAAAAAAAAA",
+"AAAAAAP//////////////////gf///AAAAAAP//4AAAP///+AAAA+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAf//4AAAAAAAAAAAAAAAAAAAAAAAH//////////////////gf//4AAAAAAP//wAAAPn///gAAB+AAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAADD///AAAAAAAAAAAAAAAAAAAAAAP//////////////////gf//4AAAAAAH/+AAAACH///",
+"wAAB8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///wAAAAAAAAAAAAAAAAAAAAAP/////////////////",
+"/4f//gAAAAAAD/+AAAAAH///wAAB8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//wAAAAAAAAAAAAAAA",
+"AAAAAA///////////////////8f/8AAAAAAAD/+AAAAAH///4AAA8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAP//wAAAAAAAAAAAAAAAAAAAAAf//////////////////+P/wAAAAAAAB/+AAAAAH///4AAAfAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//wAAAAAAAAAAAAAAAAAAAAAP///////////////////P/AAAAAAAAB/+AAAAAD///",
+"4AAAfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/gAAAAAAAAAAAAAAAAAAAAAP/////////////////",
+"//vwAAAAAAAAB/+AAAAAD///4AAA5wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/wAAAAAAAAAAAAAAA",
+"AAAAAAP////////////////////gAAAAAAAAB/+AAAAAD///4AAAYYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAA/gAAAwAAAAAAAAAAAAAAAAAP///////////////////4AAAAAAAAAA/8AAAAADw//4AAAIGAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAD2AAAAAAAAAAAAAAAAAH///////////////////wADgAAAAAAA/8AAAAABwf/",
+"4AAAGHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPgAAfvgAAAAAAAAAAAAAAAAB/////////////////",
+"//4A/gAAAAAAAf8AAAAABwP/wAADDvAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPgAB//wAOAAAAAAAA",
+"AAAAAAA///////////////////8P/gAAAAAAAf8AAAAADgP/AAADH+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAPwAD///vuAAAAAAAAAAAAAAA//////////////////////AAAAAAAAP4AAAAABgB+AAAGB2AAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AD/f//8AAAAAAAAAAAAAAAP/////////////////////AAAAAAAAP6AAAAADgA8",
+"AAAMDyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8fH////+AAAAAAAAAAAAAAAP////////////////",
+"/////AAAAAAAAP/AAAAADgB4AAAYBjgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/7/////+AAAAAAAA",
+"AAAAAAAH////////////////////+AAAAAAAAHngAAAAD4AgAAAwAHgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAfx//////gAAAAAAAAAAAAAAH////////////////////+AAAAAAAADHgAAAAD4AAAAAAB/gAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADx//////4AAAAAAAAAAAAAAD////////////////////8AAAAAAAAAHwAAAAA4AA",
+"AAAAD/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAg//////8AAAAAAAAAAAAAAB////////////////",
+"////8AAAAAAAAAHwAAAAAcAAAAAAHPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////8AAAAAAA",
+"AAAAAAAAf///////////////////4AAAAAAAAAHwAAAAAfAAAABgAegAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAf//////AAAAAAAAAAAAAAAP////P//////////////4AAAAAAAAADgAAAAAPgAAADwAPAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf///////gAAAAAAAAAAAAAH///wH//////////////wAAAAAAAAAAAAAAAAPwA",
+"AAH4ACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf///////4AAAAAAAAAAAAAD//+AD//////////",
+"////wAAAAAAAAAAAAAAD4P4AAAP+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf///////8AAAAA",
+"AAAAAAAAA/AYAD//////////////gAAAAAAAAAAAAAAB8H4AAA/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAf///////+AAAAAAAAAAAAAAAAAAAx/////////////AAAAAAAAAAAAAAAA+H4AAB/4AAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf////////AAAAAAAAAAAAAAAAAAAA////////////+AAAAAAAAAAAAAAAAfH4A",
+"AB/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////gAAAAAAAAAAAAAAAAAAAf////////",
+"///8AAAAAAAAAAAAAAAAPz4AAD/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////gAAAA",
+"AAAAAAAAAAAAAAAf///////////4AAAAAAAAAAAAAAAAH78AA//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAD/////////gAAAAAAAAAAAAAAAAAAAf///////////wAAAAAAAAAAAAAAAAH88AA//4AAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////////wAAAAAAAAAAAAAAAAAAA////////////gAAAAAAAAAAAAAAAAB/+A",
+"P//wAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////4AAAAAAAAAAAAAAAAAAA/////////",
+"//+AAAAAAAAAAAAAAAAAB/8AP//8YGPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////wAAAA",
+"AAAAAAAAAAAAAAA///////////8AAAAAAAAAAAAAAAAAA/wAf//w/8PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAf/////////gAAAAAAAAAAAAAAAAAAA///////////4AAAAAAAAAAAAAAAAAA/8Af//xgQGAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////+AAAAAAAAAAAAAAAAAAA///////////wAAAAAAAAAAAAAAAAAAf8A",
+"P//hgAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///////////wAAAAAAAAAAAAAAAAAB/////////",
+"//gAAAAAAAAAAAAAAAAAAP8AP//xhgCB8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///////////+AAA",
+"AAAAAAAAAAAAAAB///////////AAAAAAAAAAAAAAAAAAAP+AH//D/AAH+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAA////////////gAAAAAAAAAAAAAAAAA//////////+AAAAAAAAAAAAAAAAAAAH/AD//D8AAB+DgAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA////////////wAAAAAAAAAAAAAAAAA//////////8AAAAAAAAAAAAAAAAAAAD/A",
+"D//D8AAAGP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////////////AAAAAAAAAAAAAAAAAf////////",
+"/4AAAAAAAAAAAAAAAAAAAD/wD/+H+AAA+f/gAAYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////////////A",
+"AAAAAAAAAAAAAAAP/////////4AAAAAAAAAAAAAAAAAAAB/4Af+H+A/8f//8AAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAA//////////////wAAAAAAAAAAAAAAAH/////////wAAAAAAAAAAAAAAAAAAAA/wAAeBuAQEf///gADAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//////////////4AAAAAAAAAAAAAAAD/////////wAAAAAAAAAAAAAAAAAAAAfw",
+"AAABnAAAB///4AHgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//////////////8AAAAAAAAAAAAAAAB////////",
+"/gAAAAAAAAAAAAAAAAAAAAPwAAABlgAAAP//8AHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///////////////",
+"wAAAAAAAAAAAAAAB/////////AAAAAAAAAAAAAAAAAAAAADwAAADjgAAAB//8B+EAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAA///////////////wAAAAAAAAAAAAAAA/////////AAAAAAAAAAAAAAAAAAAAABwAAAAAAAADA///P4GAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///////////////wAAAAAAAAAAAAAAA/////////AAAAAAAAAAAAAAAAAAAAAAf",
+"AAAAAAAADA///xgHAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////////////4AAAAAAAAAAAAAAAf///////",
+"/gAAAAAAAAAAAAAAAAAAAAA/xwAAAAAACAf//AADwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////////////",
+"4AAAAAAAAAAAAAAAf////////gAAAAAAAAAAAAAAAAAAAAAP/8AAAAAAAAf//gAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAP//////////////4AAAAAAAAAAAAAAAf////////gAAAAAAAAAAAAAAAAAAAAAAv/gAAAAAAB//vwAABgAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////////////4AAAAAAAAAAAAAAAP////////gAAAAAAAAAAAAAAAAAAAAAA",
+"A/4YRAAAAB3+D4AAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////////wAAAAAAAAAAAAAAAP///////",
+"/gAAAAAAAAAAAAAAAAAAAAAAAAR9+DwAAAB+D8AAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//////////////",
+"wAAAAAAAAAAAAAAAf////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAPAAAAAMB+AAASAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAB//////////////gAAAAAAAAAAAAAAAP////////wAAAAAAAAAAAAAAAAAAAAAAAAADwcAAAAAAA/AAAdAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//////////////AAAAAAAAAAAAAAAAP////////4AAAAAAAAAAAAAAAAAAAAAA",
+"AAAAg4AAAAAAAHwAACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////+AAAAAAAAAAAAAAAAH///////",
+"/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMAAAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////8",
+"AAAAAAAAAAAAAAAAH////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAABwAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAf////////////8AAAAAAAAAAAAAAAAH////////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcAAcAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf////////////4AAAAAAAAAAAAAAAAP////////8AAIAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAD/8AeAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////////////wAAAAAAAAAAAAAAAAP///////",
+"/8AAcAAAAAAAAAAAAAAAAAAAAAAAAAAP/8AeAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////////g",
+"AAAAAAAAAAAAAAAAf////////8AAcAAAAAAAAAAAAAAAAAAAAAAAAAAP/4AfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAH////////////gAAAAAAAAAAAAAAAA/////////8AB+AAAAAAAAAAAAAAAAAAAAAAAAAAf/4AfAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////////gAAAAAAAAAAAAAAAA/////////8AB+AAAAAAAAAAAAAAAAAAA",
+"AAAAAB8f/wAfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD////////////gAAAAAAAAAAAAAAAA////////",
+"/8AD+AAAAAAAAAAAAAAAAAAAAAAAAD+f/gAf4AAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB////////////g",
+"AAAAAAAAAAAAAAAB/////////8AH+AAAAAAAAAAAAAAAAAAAAAAAAH///wAf4AAAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAf///////////gAAAAAAAAAAAAAAAB/////////4AP+AAAAAAAAAAAAAAAAAAAAAAAAP///8A/4AAAAAAAAAAA",
+"gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////////gAAAAAAAAAAAAAAAB/////////wD/8AAAAAAAAAAAAAAAAAAA",
+"AAAAAf////A/4AAAAAADAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD///////////AAAAAAAAAAAAAAAAB////////",
+"/gD/8AAAAAAAAAAAAAAAAAAAAAAAB/////g/8AAAAAAAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///////////A",
+"AAAAAAAAAAAAAAAB////////+AD/4AAAAAAAAAAAAAAAAAAAAAAAD/////5/8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAf//////////AAAAAAAAAAAAAAAAB////////4AH/4AAAAAAAAAAAAAAAAAAAAAAAD///////+AAAAAAAAAA8",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/////////+AAAAAAAAAAAAAAAAB////////wAD/4AAAAAAAAAAAAAAAAAAA",
+"AAAAD///////+AAAAAAAAAAYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////+AAAAAAAAAAAAAAAAA////////",
+"gAD/4AAAAAAAAAAAAAAAAAAAAAAAH///////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////+A",
+"AAAAAAAAAAAAAAAAf//////+AAD/wAAAAAAAAAAAAAAAAAAAAAAAP////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAH/////////+AAAAAAAAAAAAAAAAAf//////8AAD/wAAAAAAAAAAAAAAAAAAAAAAAf////////wAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////8AAAAAAAAAAAAAAAAAP//////8AAD/wAAAAAAAAAAAAAAAAAAA",
+"AAAH/////////8AAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////4AAAAAAAAAAAAAAAAAP//////8",
+"AAH/gAAAAAAAAAAAAAAAAAAAAAB//////////8AAAADgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////4A",
+"AAAAAAAAAAAAAAAAH//////+AAH/gAAAAAAAAAAAAAAAAAAAAAH//////////+AAAAB4AAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAH/////////4AAAAAAAAAAAAAAAAAH//////+AAP/gAAAAAAAAAAAAAAAAAAAAAf//////////+AAAAAcAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////gAAAAAAAAAAAAAAAAAD///////AAP/AAAAAAAAAAAAAAAAAAAA",
+"AB////////////gAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////////gAAAAAAAAAAAAAAAAAD///////",
+"AAP/AAAAAAAAAAAAAAAAAAAAAB////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////wAA",
+"AAAAAAAAAAAAAAAAD//////+AAH/AAAAAAAAAAAAAAAAAAAAAB////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAH////////AAAAAAAAAAAAAAAAAAAD///////AAH/AAAAAAAAAAAAAAAAAAAAAB////////////4AAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////4AAAAAAAAAAAAAAAAAAAD//////+AAH+AAAAAAAAAAAAAAAAAAAA",
+"AD////////////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////wAAAAAAAAAAAAAAAAAAAB//////4",
+"AAH+AAAAAAAAAAAAAAAAAAAAAB////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////gAAA",
+"AAAAAAAAAAAAAAAAB//////gAAB4AAAAAAAAAAAAAAAAAAAAAB/////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAP///////AAAAAAAAAAAAAAAAAAAAB//////AAAAAAAAAAAAAAAAAAAAAAAAAAD/////////////gAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////+AAAAAAAAAAAAAAAAAAAAA//////AAAAAAAAAAAAAAAAAAAAAAAAA",
+"AD/////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////+AAAAAAAAAAAAAAAAAAAAA//////A",
+"AAAAAAAAAAAAAAAAAAAAAAAAAB/////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///////AAAA",
+"AAAAAAAAAAAAAAAAA//////AAAAAAAAAAAAAAAAAAAAAAAAAAB/////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAP//////+AAAAAAAAAAAAAAAAAAAAAf/////AAAAAAAAAAAAAAAAAAAAAAAAAAA/////////////gAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////+AAAAAAAAAAAAAAAAAAAAAP////+AAAAAAAAAAAAAAAAAAAAAAAAA",
+"AA/////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////+AAAAAAAAAAAAAAAAAAAAAP////+A",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAf////////////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////4AAAA",
+"AAAAAAAAAAAAAAAAAH////8AAAAAAAAAAAAAAAAAAAAAAAAAAAf////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAf//////4AAAAAAAAAAAAAAAAAAAAAH////4AAAAAAAAAAAAAAAAAAAAAAAAAAAP////////////gAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//////wAAAAAAAAAAAAAAAAAAAAAD////wAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAP////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///////gAAAAAAAAAAAAAAAAAAAAAB////gA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAP////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///////gAAAA",
+"AAAAAAAAAAAAAAAAAB////AAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAA//////+AAAAAAAAAAAAAAAAAAAAAAA///+AAAAAAAAAAAAAAAAAAAAAAAAAAAAH////B///////AAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////8AAAAAAAAAAAAAAAAAAAAAAA///8AAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAH///4AP//////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////8AAAAAAAAAAAAAAAAAAAAAAB///4AA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAH//+AAD/////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//////4AAAAA",
+"AAAAAAAAAAAAAAAAAA///gAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//4AAB/////8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAA//////wAAAAAAAAAAAAAAAAAAAAAAA//8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//wAAA9////4AAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//////gAAAAAAAAAAAAAAAAAAAAAAAfwAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAP/AAAAA7////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB////8eAAAAAAAAAAAAAAAAAAAAAAAAGAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAD8AAAAAb////wAAAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/////AAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE////wAAAAAADgAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAD/////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///gAAAAAABgA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAH///gAAAAAABwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///gAAAAAAA8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/////AAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///AAAAAAAAcAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAP/////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//+AAAAAAAAec",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAA//gAAAAAAAAf4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADHAAAAAAAAAf4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///wAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/gAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAP///wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/g",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAPAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYAAAAAAAAMOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//wAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf4AAAAAAAP+AAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAf//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP4AAAAAAAfgA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAP4AAAAAAA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAb//8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwAAAAAAB+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAb//4AAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHgAAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAH//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP+AA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAA/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//+AAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/AAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAA//8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/AAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAD+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA///gAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAB///gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//8AAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAD//4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB//gAAMAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAB//gAD+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//wACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/wAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAP/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8AAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//AAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAf//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+AAAAAAAAAAAAAAA+AADAAAAAABwAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//gAAAAAAAAAYAAAD/A",
+"A/wAAgAP/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAD//wAAAAAAAAA8AAAP/////gH///////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///AAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAA////AIAAAAAf////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAAAP///AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////9//AAAB//////////////////////gAAAAAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf////////gAAP/////////",
+"/////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+",
+"AH/////////wAA//////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAef///AAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAB/8f/////////wAB//////////////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAAAAAAAAAAA/////AAAAAAAAAAAAAAAAAAAAAEAMP+AAA/////////////wH////////////////////////////wAAAAAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////AAAAAAAAAAAAAAAAAAAAA/4///w///////////////wP///////////",
+"/////////////////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////AAAAAAAAAAAAAAAADAAA///////////",
+"///////////wf///////////////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/////AAAAAAA",
+"AAAAAAAAPn//f//////////////////////x/////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAA",
+"AAwAAAAAAAA//////AAAAAAAAAAAAAAAf//////////////////////////z/////////////////////////////////gAA",
+"AAAAAAAAAAAAAAAAAAAAAAAAAA//AAAAAAAd/////AAAAAAAAAAAAAAB////////////////////////////////////////",
+"/////////////////////gAAAAAAAAAAAAAAAAAAAAAAAAAAAP/AAA4AAAAAA////AAAAAAAAAAAAAAf////////////////",
+"/////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAACAAAAAAAP/4f//+A7gH/////AAAAAAA",
+"AAAAAAH//////////////////////////////////////////////////////////////gAAAAAAAAAAAAAAAAAAAA4fwDgA",
+"AP///////////////AAAAAAAAAAAAAH//////////////////////////////////////////////////////////////gAA",
+"AAAAAAAAAAAAAAH///nh//5AAP///////////////AAAAAAAAAAAAAH/////////////////////////////////////////",
+"/////////////////////gAAAAAAAAAAAAAAAD/////////+A////////////////AAAAAAAAAAAAAf/////////////////",
+"/////////////////////////////////////////////gAAAAAAAAAAAAAe/////////////////////////////AAAAAAA",
+"AAAAAD///////////////////////////////////////////////////////////////gAAAAAAAAAAAAAf////////////",
+"/////////////////AAAAAAAAAAAD////////////////////////////////////////////////////////////////gAA",
+"AAAAAAAAAAAf/////////////////////////////AAAAAAAAAD/////////////////////////////////////////////",
+"/////////////////////gAAAAAAAAD4AAP//////////////////////////////AAAAAAAAAf/////////////////////",
+"/////////////////////////////////////////////gAAAAAAAAD//////////////////////////////////AAAAAAA",
+"AH///////////////////////////////////////////////////////////////////gAAAAAAAAD/////////////////",
+"/////////////////AAAAAAAH////////////////////////////////////////////////////////////////////gAA",
+"AAAAAGD//////////////////////////////////AAD/gAA////////////////////////////////////////////////",
+"/////////////////////gAAAAAAAH///////////////////////////////////AAP/4AA////////////////////////",
+"/////////////////////////////////////////////gAAAAAAAB///////////////////////////////////AAf/8AA",
+"/////////////////////////////////////////////////////////////////////gAAAAAAAAD/////////////////",
+"/////////////////AB//8AA/////////////////////////////////////////////////////////////////////gAA",
+"AAAAAAD//////////////////////////////////A///wAA////////////////////////////////////////////////",
+"/////////////////////gAAAAAAAAD//////////////////////////////////A//gAAA////////////////////////",
+"/////////////////////////////////////////////gAAAAAAAAD//////////////////////////////////AAAAAf/",
+"/////////////////////////////////////////////////////////////////////gAAAAAAAAD/////////////////",
+"/////////////////AB//5///////////////////////////////////////////////////////////////////////gAA",
+"AAAAAAD//////////////////////////////////D//////////////////////////////////////////////////////",
+"/////////////////////gAAAAAAAAD/////////////////////////////////////////////////////////////////",
+"/////////////////////////////////////////////gAAAAAAAAD/////////////////////////////////////////",
+"/////////////////////////////////////////////////////////////////////gAAAAB4AAD/////////////////",
+"/////////////////////////////////////////////////////////////////////////////////////////////gAA",
+"/+//wAD/////////////////////////////////////////////////////////////////////////////////////////",
+"///////////////////////4/////8D/////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////",
+"////////////////////////////////////////////////////////////////////////////////////////////////"
+].join("");
+let landBits = null;
+const earthPlates = {};
+let flatEarth = null;
+function landBitsOf() {
+  if (landBits) return landBits;
+  const raw = atob(LAND_B64);
+  landBits = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) landBits[i] = raw.charCodeAt(i);
+  return landBits;
+}
+function landAt(lon, lat) {
+  const bits = landBitsOf();
+  let x = Math.floor(((Number(lon) + 180) / 360) * MASK_W);
+  let y = Math.floor(((90 - Number(lat)) / 180) * MASK_H);
+  x = ((x % MASK_W) + MASK_W) % MASK_W;
+  if (y < 0) y = 0;
+  if (y >= MASK_H) y = MASK_H - 1;
+  const i = y * MASK_W + x;
+  return (bits[i >> 3] >> (7 - (i & 7))) & 1;
+}
+function iceAt(lon, lat, land) {
+  if (!land) return false;
+  if (lat <= -60 || lat >= 73) return true;
+  return lat > 63 && lon < -22 && lon > -74;
+}
+const viewCam = { elev: 53, az: 180 / Math.PI * Math.atan2(0.22, 0.55), zoom: 1, drag: false };
+function globeSnap() {
+  return {
+    elev: Math.round(viewCam.elev * 2) / 2,
+    az: Math.round(viewCam.az * 2) / 2
+  };
+}
+function earthCamera() {
+  const a = globeSnap();
+  const elev = rad(a.elev);
+  const az = rad(a.az);
+  const ce = Math.cos(elev);
+  return [ce * Math.cos(az), ce * Math.sin(az), Math.sin(elev)];
+}
+function earthAxes(cam) {
+  let up = [0, 0, 1];
+  if (Math.abs(vdot(up, cam)) > 0.92) up = [0, 1, 0];
+  const xaxis = vnorm(vcross(up, cam));
+  const yaxis = vcross(cam, xaxis);
+  return { cam: cam, xaxis: xaxis, yaxis: yaxis };
+}
+function earthPlate(radiusPx) {
+  const snap = globeSnap();
+  const drawR = viewCam.drag ? Math.min(radiusPx, 150) : radiusPx;
+  const r = Math.max(64, Math.round(drawR / 2) * 2);
+  const key = r + "@" + snap.elev + "," + snap.az;
+  if (earthPlates[key]) return earthPlates[key];
+  const d = r * 2;
+  const cnv = document.createElement("canvas");
+  cnv.width = d;
+  cnv.height = d;
+  const ctx = cnv.getContext("2d");
+  const img = ctx.createImageData(d, d);
+  const data = img.data;
+  const ax = earthAxes(earthCamera());
+  const re2 = RE_KM * RE_KM;
+  for (let y = 0; y < d; y++) {
+    const py = -((y + 0.5) - r) / r * RE_KM;
+    for (let x = 0; x < d; x++) {
+      const px = ((x + 0.5) - r) / r * RE_KM;
+      const rho2 = px * px + py * py;
+      const o = (y * d + x) * 4;
+      if (rho2 > re2) {
+        data[o + 3] = 0;
+        continue;
+      }
+      const depth = Math.sqrt(re2 - rho2);
+      const p = [
+        ax.xaxis[0] * px + ax.yaxis[0] * py + ax.cam[0] * depth,
+        ax.xaxis[1] * px + ax.yaxis[1] * py + ax.cam[1] * depth,
+        ax.xaxis[2] * px + ax.yaxis[2] * py + ax.cam[2] * depth
+      ];
+      const lat = deg(Math.asin(Math.max(-1, Math.min(1, p[2] / RE_KM))));
+      const lon = deg(Math.atan2(p[1], p[0]));
+      const land = landAt(lon, lat);
+      const ice = iceAt(lon, lat, land);
+      const coast = land && !ice && (
+        !landAt(lon + 0.55, lat) || !landAt(lon - 0.55, lat) ||
+        !landAt(lon, lat + 0.55) || !landAt(lon, lat - 0.55)
+      );
+      const nrm = depth / RE_KM;
+      const light = 0.36 + 0.64 * nrm;
+      const spec = land ? 0 : Math.pow(nrm, 22) * 0.4;
+      let r, g, b;
+      if (!land) {
+        r = 8 * light + 186 * spec;
+        g = 44 * light + 214 * spec;
+        b = 82 * light + 232 * spec;
+      } else if (ice) {
+        r = 206 * light;
+        g = 220 * light;
+        b = 228 * light;
+      } else if (coast) {
+        r = 196 * light;
+        g = 214 * light;
+        b = 196 * light;
+      } else {
+        r = 58 * light;
+        g = 108 * light;
+        b = 64 * light;
+      }
+      data[o] = Math.max(0, Math.min(255, r));
+      data[o + 1] = Math.max(0, Math.min(255, g));
+      data[o + 2] = Math.max(0, Math.min(255, b));
+      data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  earthPlates[key] = cnv;
+  const keys = Object.keys(earthPlates);
+  if (keys.length > 4) delete earthPlates[keys[0]];
+  return cnv;
+}
+function flatEarthCanvas() {
+  if (flatEarth) return flatEarth;
+  const cnv = document.createElement("canvas");
+  cnv.width = MASK_W;
+  cnv.height = MASK_H;
+  const ctx = cnv.getContext("2d");
+  const img = ctx.createImageData(MASK_W, MASK_H);
+  const data = img.data;
+  for (let y = 0; y < MASK_H; y++) {
+    const lat = 90 - ((y + 0.5) / MASK_H) * 180;
+    for (let x = 0; x < MASK_W; x++) {
+      const lon = -180 + ((x + 0.5) / MASK_W) * 360;
+      const land = landAt(lon, lat);
+      const ice = iceAt(lon, lat, land);
+      const o = (y * MASK_W + x) * 4;
+      if (!land) {
+        data[o] = 8; data[o + 1] = 28; data[o + 2] = 48;
+      } else if (ice) {
+        data[o] = 186; data[o + 1] = 204; data[o + 2] = 214;
+      } else {
+        data[o] = 36; data[o + 1] = 78; data[o + 2] = 46;
+      }
+      data[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  flatEarth = cnv;
+  return cnv;
+}
+function paintFlatEarth(g, w, h) {
+  g.drawImage(flatEarthCanvas(), 0, 0, w, h);
+}
 function drawEarth(g, proj, scale, cx, cy) {
-  g.beginPath();
-  g.arc(cx, cy, RE_KM * scale, 0, Math.PI * 2);
-  const grd = g.createRadialGradient(
-    cx - RE_KM * scale * 0.28, cy - RE_KM * scale * 0.32, RE_KM * scale * 0.08,
-    cx, cy, RE_KM * scale
-  );
-  grd.addColorStop(0, "#2a3d5c");
-  grd.addColorStop(0.62, "#121a28");
-  grd.addColorStop(1, "#070b12");
-  g.fillStyle = grd;
-  g.fill();
-  g.strokeStyle = "#d7e4ff";
-  g.lineWidth = 1.15;
-  g.stroke();
+  const radius = RE_KM * scale;
+  const plate = earthPlate(radius);
+  g.drawImage(plate, cx - radius, cy - radius, radius * 2, radius * 2);
   g.save();
   g.beginPath();
-  g.arc(cx, cy, RE_KM * scale - 0.6, 0, Math.PI * 2);
+  g.arc(cx, cy, Math.max(1, radius - 0.6), 0, Math.PI * 2);
   g.clip();
-  g.strokeStyle = "#2c3a4e";
+  g.strokeStyle = "rgba(215,228,255,0.20)";
   g.lineWidth = 1;
   for (let lon = -180; lon < 180; lon += 30) {
     g.beginPath();
@@ -624,12 +1310,22 @@ function drawEarth(g, proj, scale, cx, cy) {
     g.stroke();
   }
   g.restore();
+  g.beginPath();
+  g.arc(cx, cy, radius + 2.2, 0, Math.PI * 2);
+  g.strokeStyle = "rgba(120,176,214,0.28)";
+  g.lineWidth = 4;
+  g.stroke();
+  g.beginPath();
+  g.arc(cx, cy, radius, 0, Math.PI * 2);
+  g.strokeStyle = "#d7e4ff";
+  g.lineWidth = 1.15;
+  g.stroke();
   const pole = proj(ecef(90, 0, RE_KM));
   if (pole.depth > 0) {
     const x = cx + pole.x * scale;
     const y = cy - pole.y * scale;
     g.fillStyle = "#d7e4ff";
-    g.font = "10px sans-serif";
+    g.font = hudFont(10);
     g.fillText("N", x + 4, y - 2);
   }
 }
@@ -649,106 +1345,150 @@ function markAt(g, proj, scale, cx, cy, lat, lon, r, color, arm, label) {
   g.stroke();
   if (label) {
     g.fillStyle = color;
-    g.font = "11px sans-serif";
+    g.font = hudFont(11);
     g.fillText(label, x + arm + 8, y - 6);
   }
+}
+function drawRoster(g, live, act, x0, y0, width) {
+  g.font = hudFont(11);
+  g.fillStyle = "#8a8a8a";
+  g.fillText("LIVE ROSTER", x0, y0 + 12);
+  g.font = hudNum(10);
+  g.fillStyle = "#8a8a8a";
+  g.fillText("LAT      LON      ALT", x0 + 14, y0 + 26);
+  live.forEach((p, i) => {
+    const y = y0 + 48 + i * 32;
+    const id = Number(p.src.norad_id);
+    const on = act && Number(act.norad_id) === id;
+    const hero = id === 44713;
+    if (on || hero) {
+      g.fillStyle = "#111111";
+      g.fillRect(x0 - 4, y - 14, Math.max(40, width - 8), 30);
+    }
+    g.fillStyle = hero ? "#ffffff" : toneOf(p.src);
+    g.beginPath();
+    g.arc(x0 + 5, y - 4, hero || on ? 3.4 : 2.5, 0, Math.PI * 2);
+    g.fill();
+    g.font = hudFont(11);
+    g.fillStyle = "#f4f4f4";
+    g.fillText(String(id) + "  " + String(p.src.name || "").slice(0, 16), x0 + 14, y);
+    g.font = hudNum(10);
+    g.fillStyle = p.hidden ? "#8a8a8a" : "#cfcfcf";
+    g.fillText(
+      n(p.lat, 1).padStart(7, " ") + "  " + n(p.lon, 1).padStart(7, " ") + "  " + n(p.alt, 0).padStart(5, " ") + " km",
+      x0 + 14,
+      y + 13
+    );
+  });
 }
 function drawOrbit(cat, act) {
   const c = $("orbit");
   if (!c) return;
-  const view = fitCanvas(c, 900, 480);
+  const view = fitCanvas(c, 1100, 560);
   const g = view.g;
-  const hero = byId(cat, 44713);
-  const gmst = (hero && hero.gmst != null) ? hero.gmst : ((cat[0] && cat[0].gmst) || 0);
+  const live = liveFixes(cat);
+  const title = $("orbit-k");
+  if (!live.length) {
+    g.fillStyle = "#8a8a8a";
+    g.font = hudFont(12);
+    g.fillText("Waiting for the catalog.", 16, 28);
+    if (title) title.textContent = "Earth view · all positions";
+    return;
+  }
+  const gmst = live[0].gmst;
   const pubSma = smaFromMotion(PUBLIC_44713.mean_motion);
   const pub = withEcef(ringPoints(
     PUBLIC_44713.inc, PUBLIC_44713.raan, PUBLIC_44713.argp,
-    PUBLIC_44713.ecc, pubSma, gmst, 180
+    PUBLIC_44713.ecc, pubSma, gmst, 140
   ));
-  const heroRing = hero ? withEcef(ringPoints(
-    hero.inclination, hero.raan, hero.argp, hero.eccentricity,
-    hero.sma_km || (RE_KM + Number(hero.altitude_km || 550)),
-    hero.gmst, 180
-  )) : [];
-  const active = act ? byId(cat, act.norad_id) : null;
-  const activeRing = (active && Number(active.norad_id) !== 44713) ? withEcef(ringPoints(
-    active.inclination, active.raan, active.argp, active.eccentricity,
-    active.sma_km || (RE_KM + Number(active.altitude_km || 550)),
-    active.gmst, 140
-  )) : [];
-  const camPts = heroRing.length ? heroRing : pub;
-  const proj = projector(cameraFor(camPts));
-  let maxR = pubSma || (RE_KM + 550);
-  heroRing.forEach((p) => { if (p.r > maxR) maxR = p.r; });
-  activeRing.forEach((p) => { if (p.r > maxR) maxR = p.r; });
-  const scale = Math.min(view.w, view.h - 48) * 0.46 / maxR;
-  const cx = view.w * 0.5;
-  const cy = (view.h - 40) * 0.48;
-  strokeRing(g, proj, pub, scale, cx, cy, "rgba(255,59,48,0.55)", 1, [4, 4], true);
-  if (heroRing.length) strokeRing(g, proj, heroRing, scale, cx, cy, "rgba(255,255,255,0.35)", 1, [], true);
-  if (activeRing.length) strokeRing(g, proj, activeRing, scale, cx, cy, "rgba(215,228,255,0.35)", 1, [], true);
-  drawEarth(g, proj, scale, cx, cy);
-  strokeRing(g, proj, pub, scale, cx, cy, "#ff3b30", 1.15, [5, 4], false);
-  if (heroRing.length) strokeRing(g, proj, heroRing, scale, cx, cy, "#ffffff", 1.7, [], false);
-  if (activeRing.length) strokeRing(g, proj, activeRing, scale, cx, cy, "#d7e4ff", 1.2, [], false);
-  cat.forEach((t) => {
-    if (Number(t.norad_id) === 44713) return;
-    if (act && Number(t.norad_id) === Number(act.norad_id)) return;
-    const q = proj(ecef(t.lat, t.lon, RE_KM + 1));
-    if (q.depth <= 0) return;
-    const x = cx + q.x * scale;
-    const y = cy - q.y * scale;
-    g.fillStyle = toneOf(t);
-    g.beginPath();
-    g.arc(x, y, 2.4, 0, Math.PI * 2);
-    g.fill();
+  const rings = live.map((p) => {
+    const id = Number(p.src.norad_id);
+    return {
+      p: p,
+      pts: withEcef(ringPoints(
+        p.src.inclination, p.src.raan, p.src.argp, p.src.eccentricity,
+        p.src.sma_km || p.r, p.gmst, id === 44713 ? 140 : 80
+      ))
+    };
   });
-  if (hero) {
-    const r = Number(hero.radius_km) || (RE_KM + Number(hero.altitude_km || 0));
-    const surf = proj(ecef(hero.lat, hero.lon, RE_KM));
-    const sat = proj(ecef(hero.lat, hero.lon, r));
-    if (!occluded(sat)) {
-      g.strokeStyle = "rgba(255,255,255,0.7)";
+  const wide = view.w >= 820;
+  const rosterW = wide ? Math.min(300, Math.max(228, view.w * 0.28)) : 0;
+  const rosterH = wide ? 0 : Math.min(view.h * 0.46, 40 + live.length * 32);
+  const plotW = Math.max(160, view.w - rosterW);
+  const plotH = Math.max(160, view.h - rosterH);
+  let maxR = pubSma || (RE_KM + 550);
+  live.forEach((p) => { if (p.r > maxR) maxR = p.r; });
+  const scale = Math.min(plotW - 16, plotH - 36) * 0.46 / maxR * viewCam.zoom;
+  const cx = plotW * 0.5;
+  const cy = plotH * 0.48;
+  const proj = projector(earthCamera());
+  c.dataset.plotW = String(plotW);
+  strokeRing(g, proj, pub, scale, cx, cy, "rgba(255,59,48,0.40)", 1, [4, 4], true);
+  rings.forEach((ring) => {
+    const hero = Number(ring.p.src.norad_id) === 44713;
+    const color = hero ? "rgba(255,255,255,0.30)" : fade(toneOf(ring.p.src), 0.22);
+    strokeRing(g, proj, ring.pts, scale, cx, cy, color, 1, [], true);
+  });
+  drawEarth(g, proj, scale, cx, cy);
+  strokeRing(g, proj, pub, scale, cx, cy, "#ff3b30", 1.05, [5, 4], false);
+  rings.forEach((ring) => {
+    const id = Number(ring.p.src.norad_id);
+    const on = act && Number(act.norad_id) === id;
+    const hero = id === 44713;
+    const color = hero ? "#ffffff" : toneOf(ring.p.src);
+    strokeRing(g, proj, ring.pts, scale, cx, cy, color, hero ? 1.7 : (on ? 1.35 : 1.0), [], false);
+  });
+  const marks = rings.map((ring) => {
+    const q = proj(ecef(ring.p.lat, ring.p.lon, ring.p.r));
+    ring.p.hidden = occluded(q);
+    return { ring: ring, q: q };
+  }).sort((a, b) => a.q.depth - b.q.depth);
+  marks.forEach((mark) => {
+    const p = mark.ring.p;
+    const q = mark.q;
+    const id = Number(p.src.norad_id);
+    const on = act && Number(act.norad_id) === id;
+    const hero = id === 44713;
+    const color = hero ? "#ffffff" : toneOf(p.src);
+    if (!p.hidden) {
+      const surf = proj(ecef(p.lat, p.lon, RE_KM));
+      g.strokeStyle = color;
+      g.globalAlpha = 0.5;
       g.lineWidth = 1;
       g.beginPath();
-      if (!occluded(surf) && surf.depth > 0) {
-        g.moveTo(cx + surf.x * scale, cy - surf.y * scale);
-      } else {
-        g.moveTo(cx, cy);
-      }
-      g.lineTo(cx + sat.x * scale, cy - sat.y * scale);
+      if (!occluded(surf) && surf.depth > 0) g.moveTo(cx + surf.x * scale, cy - surf.y * scale);
+      else g.moveTo(cx, cy);
+      g.lineTo(cx + q.x * scale, cy - q.y * scale);
       g.stroke();
+      g.globalAlpha = 1;
     }
-    markAt(g, proj, scale, cx, cy, hero.lat, hero.lon, r, "#ffffff", 8, "44713");
-  }
-  if (active && Number(active.norad_id) !== 44713) {
-    const r = Number(active.radius_km) || (RE_KM + Number(active.altitude_km || 0));
-    markAt(g, proj, scale, cx, cy, active.lat, active.lon, r, "#d7e4ff", 6, String(active.norad_id));
-  }
-  g.font = "11px sans-serif";
-  g.fillStyle = "#8a8a8a";
+    markAt(g, proj, scale, cx, cy, p.lat, p.lon, p.r, color, hero || on ? 7 : 5, String(id));
+  });
   const legend = [
-    ["#ffffff", "44713 sweep ephemeris"],
-    ["#ff3b30", "public last plane"],
-    ["#d7e4ff", "other catalog"]
+    ["#ffffff", false, "sweep orbits"],
+    ["#d7e4ff", false, "station / payload"],
+    ["#ff3b30", false, "debris"],
+    ["#ff3b30", true, "public last plane"]
   ];
+  g.font = hudFont(11);
   legend.forEach((item, i) => {
-    const y = view.h - 18 - (legend.length - 1 - i) * 14;
+    const y = plotH - 16 - (legend.length - 1 - i) * 14;
     g.strokeStyle = item[0];
     g.lineWidth = 1.4;
+    g.setLineDash(item[1] ? [4, 3] : []);
     g.beginPath();
     g.moveTo(12, y - 3);
     g.lineTo(28, y - 3);
     g.stroke();
+    g.setLineDash([]);
     g.fillStyle = "#cfcfcf";
-    g.fillText(item[1], 34, y);
+    g.fillText(item[2], 34, y);
   });
-  const title = $("orbit-k");
-  if (title) {
-    const alt = hero ? n(hero.altitude_km, 0) + " km" : "waiting";
-    title.textContent = "Orbit above Earth · 44713 · " + alt;
-  }
+  if (wide) drawRoster(g, live, act, plotW + 8, 4, rosterW - 8);
+  else drawRoster(g, live, act, 12, plotH + 2, view.w - 16);
+  if (title) title.textContent = "Earth view · " + live.length + " positions";
 }
+
 function fillBox(id, rows) {
   const box = $(id);
   if (!box) return;
@@ -865,7 +1605,7 @@ function drawBands(cat, act) {
   const g = view.g;
   if (!cat.length) {
     g.fillStyle = "#8a8a8a";
-    g.font = "12px sans-serif";
+    g.font = hudFont(12);
     g.fillText("Waiting for the catalog.", 8, 24);
     return;
   }
@@ -889,7 +1629,7 @@ function drawBands(cat, act) {
       g.fillRect(0, y, view.w, rowH - 2);
     }
     g.fillStyle = "#8a8a8a";
-    g.font = "11px sans-serif";
+    g.font = hudFont(11);
     g.fillText(String(t.norad_id) + "  " + String(t.name || "").slice(0, 16), 8, y + rowH * 0.62);
     g.strokeStyle = "#2a2a2a";
     g.lineWidth = 4;
@@ -911,67 +1651,63 @@ function drawBands(cat, act) {
     g.fillText(n(alt, 0), x1 + 8, y + rowH * 0.62);
   });
 }
+function strokeTrack(g, pts, xy) {
+  let pen = false;
+  g.beginPath();
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    const prev = i ? pts[i - 1] : null;
+    if (prev && Math.abs(p.lon - prev.lon) > 180) pen = false;
+    const pair = xy(p.lon, p.lat);
+    if (!pen) { g.moveTo(pair[0], pair[1]); pen = true; }
+    else g.lineTo(pair[0], pair[1]);
+  }
+  g.stroke();
+}
 function drawGround(cat, act) {
   const c = $("gtrack");
   if (!c) return;
-  const view = fitCanvas(c, 360, 150);
+  const view = fitCanvas(c, 900, 440);
   const g = view.g;
   const w = view.w;
   const h = view.h;
-  g.strokeStyle = "#2a2a2a";
-  g.lineWidth = 1;
-  for (let lon = -180; lon <= 180; lon += 60) {
-    const x = ((lon + 180) / 360) * w;
-    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke();
-  }
-  for (let lat = -60; lat <= 60; lat += 30) {
-    const y = ((90 - lat) / 180) * h;
-    g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
-  }
-  const xy = (lon, lat) => [((Number(lon) + 180) / 360) * w, ((90 - Number(lat)) / 180) * h];
-  const hero = byId(cat, 44713);
-  if (hero && hero.inclination != null) {
-    const pts = ringPoints(
-      hero.inclination, hero.raan, hero.argp, hero.eccentricity,
-      hero.sma_km || (RE_KM + Number(hero.altitude_km || 550)),
-      hero.gmst, 240
-    );
-    g.strokeStyle = "#ffffff";
-    g.lineWidth = 1.3;
-    let pen = false;
-    g.beginPath();
-    for (let i = 0; i < pts.length; i++) {
-      const p = pts[i];
-      const prev = i ? pts[i - 1] : null;
-      if (prev && Math.abs(p.lon - prev.lon) > 180) pen = false;
-      const [x, y] = xy(p.lon, p.lat);
-      if (!pen) { g.moveTo(x, y); pen = true; }
-      else g.lineTo(x, y);
-    }
-    g.stroke();
-    const [x, y] = xy(hero.lon, hero.lat);
-    g.strokeStyle = "#ffffff";
-    g.beginPath();
-    g.moveTo(x - 6, y - 6); g.lineTo(x + 6, y + 6);
-    g.moveTo(x + 6, y - 6); g.lineTo(x - 6, y + 6);
-    g.stroke();
-  } else {
+  const live = liveFixes(cat);
+  if (!live.length) {
     g.fillStyle = "#8a8a8a";
-    g.font = "12px sans-serif";
-    g.fillText("Waiting for 44713.", 8, 20);
+    g.font = hudFont(12);
+    g.fillText("Waiting for the catalog.", 8, 24);
+    return;
   }
-  cat.forEach((t) => {
-    if (Number(t.norad_id) === 44713) return;
-    const [x, y] = xy(t.lon, t.lat);
-    const on = act && Number(act.norad_id) === Number(t.norad_id);
-    g.fillStyle = on ? "#ffffff" : toneOf(t);
-    g.beginPath();
-    g.arc(x, y, on ? 3.2 : 2, 0, Math.PI * 2);
-    g.fill();
+  const radiusPx = Math.max(48, Math.min(w - 28, h - 20) * 0.5 * viewCam.zoom);
+  const scale = radiusPx / RE_KM;
+  const cx = w * 0.5;
+  const cy = h * 0.5;
+  const proj = projector(earthCamera());
+  drawEarth(g, proj, scale, cx, cy);
+  live.forEach((p) => {
+    const id = Number(p.src.norad_id);
+    const hero = id === 44713;
+    const on = act && Number(act.norad_id) === id;
+    if (p.src.inclination == null) return;
+    const pts = withEcef(ringPoints(
+      p.src.inclination, p.src.raan, p.src.argp, p.src.eccentricity,
+      p.src.sma_km || p.r, p.gmst, hero || on ? 200 : 96
+    ).map((q) => ({ lat: q.lat, lon: q.lon, r: RE_KM + 18 })));
+    const color = hero ? "#ffffff" : toneOf(p.src);
+    strokeRing(g, proj, pts, scale, cx, cy, color, hero ? 1.6 : 1.05, [], false);
+  });
+  live.forEach((p) => {
+    const id = Number(p.src.norad_id);
+    const hero = id === 44713;
+    const on = act && Number(act.norad_id) === id;
+    const color = hero ? "#ffffff" : toneOf(p.src);
+    markAt(g, proj, scale, cx, cy, p.lat, p.lon, RE_KM + 24, color, hero || on ? 6 : 3.5, hero || on ? String(id) : "");
   });
 }
+
 function drawSky(cat, act) {
   const c = $("sky");
+  if (!c) return;
   const dpr = window.devicePixelRatio || 1;
   const w = c.clientWidth || 640;
   const h = c.clientHeight || 200;
@@ -991,24 +1727,31 @@ function drawSky(cat, act) {
     g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
   }
   const xy = (lon, lat) => [((Number(lon) + 180) / 360) * w, ((90 - Number(lat)) / 180) * h];
-  cat.forEach((t) => {
-    const [x, y] = xy(t.lon, t.lat);
-    const on = act && act.norad_id === t.norad_id;
-    g.strokeStyle = on ? "#fff" : "#8a8a8a";
-    g.lineWidth = on ? 1.6 : 1;
-    const arm = on ? 16 : 5;
+  const live = liveFixes(cat);
+  live.forEach((p, i) => {
+    const pair = xy(p.lon, p.lat);
+    const x = pair[0];
+    const y = pair[1];
+    const id = Number(p.src.norad_id);
+    const on = act && Number(act.norad_id) === id;
+    const hero = id === 44713;
+    const color = hero ? "#ffffff" : toneOf(p.src);
+    g.strokeStyle = on || hero ? "#fff" : color;
+    g.lineWidth = on || hero ? 1.6 : 1;
+    const arm = on ? 16 : (hero ? 10 : 6);
     g.beginPath();
     g.moveTo(x - arm, y - arm); g.lineTo(x + arm, y + arm);
     g.moveTo(x + arm, y - arm); g.lineTo(x - arm, y + arm);
     g.stroke();
     if (on) {
       g.beginPath(); g.arc(x, y, 22, 0, Math.PI * 2); g.stroke();
-      g.font = "11px sans-serif";
-      g.fillStyle = "#fff";
-      g.fillText(String(t.norad_id), x + 26, y - 6);
     }
+    g.font = hudFont(11);
+    g.fillStyle = color;
+    g.fillText(String(id), x + arm + 6, y - 4 - (i % 2) * 10);
   });
 }
+
 function drawSpark(act) {
   const c = $("spark");
   const dpr = window.devicePixelRatio || 1;
@@ -1062,6 +1805,48 @@ async function tick() {
     $("phase").textContent = "LINK DOWN";
   }
 }
+
+function bindGlobe(id) {
+  const c = $(id);
+  if (!c || c.dataset.bound) return;
+  c.dataset.bound = "1";
+  let drag = null;
+  c.addEventListener("pointerdown", (ev) => {
+    if (ev.button !== 0) return;
+    const rect = c.getBoundingClientRect();
+    const x = ev.clientX - rect.left;
+    const plotW = Number(c.dataset.plotW) || rect.width;
+    if (id === "orbit" && x > plotW) return;
+    drag = { x: ev.clientX, y: ev.clientY, az: viewCam.az, elev: viewCam.elev, id: ev.pointerId };
+    viewCam.drag = true;
+    c.setPointerCapture(ev.pointerId);
+    c.style.cursor = "grabbing";
+  });
+  c.addEventListener("pointermove", (ev) => {
+    if (!drag || drag.id !== ev.pointerId) return;
+    viewCam.az = drag.az - (ev.clientX - drag.x) * 0.32;
+    viewCam.elev = Math.max(-85, Math.min(85, drag.elev + (ev.clientY - drag.y) * 0.28));
+  });
+  function endDrag(ev) {
+    if (!drag || ev.pointerId !== drag.id) return;
+    drag = null;
+    viewCam.drag = false;
+    c.style.cursor = "grab";
+  }
+  c.addEventListener("pointerup", endDrag);
+  c.addEventListener("pointercancel", endDrag);
+  c.addEventListener("wheel", (ev) => {
+    ev.preventDefault();
+    viewCam.zoom = Math.max(0.6, Math.min(2.8, viewCam.zoom * (ev.deltaY > 0 ? 0.9 : 1.1)));
+  }, { passive: false });
+  c.addEventListener("dblclick", () => {
+    viewCam.elev = 53;
+    viewCam.az = 180 / Math.PI * Math.atan2(0.22, 0.55);
+    viewCam.zoom = 1;
+  });
+}
+bindGlobe("orbit");
+bindGlobe("gtrack");
 tick();
 setInterval(tick, 700);
 </script>
@@ -1297,6 +2082,7 @@ class _Handler(BaseHTTPRequestHandler):
                 payload = dict(STATE.data)
                 payload["logs"] = list(STATE.logs[-250:])
                 payload["server_time"] = _now()
+                payload["server_unix"] = datetime.now(timezone.utc).timestamp()
             self._send(200, json.dumps(payload), "application/json")
             return
         if path == "/hud.png":
@@ -1399,6 +2185,7 @@ def note_catalog(targets, env):
                 "radius_km": _f(getattr(tgt, "radius_km", None)),
                 "period_min": _f(getattr(tgt, "period_min", None)),
                 "gmst": _f(getattr(tgt, "gmst_deg", None)),
+                "epoch_unix": _f(getattr(tgt, "epoch_unix", None)),
                 "radial_accel": _f(getattr(tgt, "radial_accel_ms2", None)),
             }
         )
