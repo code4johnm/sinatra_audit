@@ -197,6 +197,14 @@ class LiveOrbitalTarget:
     true_wake_sigma_m: float
     true_wake_amp: float
     ephemeris_source: str
+    argp_deg: float = 0.0
+    mean_anomaly_deg: float = 0.0
+    true_anomaly_deg: float = 0.0
+    arg_lat_deg: float = 0.0
+    sma_km: float = 0.0
+    radius_km: float = 0.0
+    period_min: float = 0.0
+    gmst_deg: float = 0.0
 
 
 def propagate_omm_to_leo_state(
@@ -252,6 +260,10 @@ def propagate_omm_to_leo_state(
         )
         % 360.0
     ) - 180.0
+    true_anom_deg = math.degrees(true_anom) % 360.0
+    arg_lat_deg = (argp + true_anom_deg) % 360.0
+    mean_anom_deg = math.degrees(M_rad) % 360.0
+    period_min = (1440.0 / n_rev_day) if n_rev_day else 0.0
 
     alt_scale_offset = (alt_km - 500.0) * 1.45
     inc_b_modulation = 420.0 * math.cos(math.radians(inc))
@@ -294,6 +306,14 @@ def propagate_omm_to_leo_state(
         orbital_velocity_ms=v_ms,
         radial_accel_ms2=accel,
         sub_lat_deg=sub_lat,
+        argp_deg=argp,
+        mean_anomaly_deg=mean_anom_deg,
+        true_anomaly_deg=true_anom_deg,
+        arg_lat_deg=arg_lat_deg,
+        sma_km=a_km,
+        radius_km=r_km,
+        period_min=period_min,
+        gmst_deg=gmst_deg,
         sub_lon_deg=sub_lon,
         true_wake_sigma_m=float(np.clip(wake_sigma, 19500.0, 33500.0)),
         true_wake_amp=wake_amp,

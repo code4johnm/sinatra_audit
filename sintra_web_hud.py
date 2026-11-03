@@ -3,6 +3,7 @@
 
 Same process, same continuous cycle, same terminal lines. The page adds
 custody, space-weather, and error stats the terminal table does not chart.
+An orbit frame draws NORAD 44713 above Earth. Existing frames stay.
 Stdlib only, so the locked-down image does not gain a dependency.
 """
 
@@ -71,7 +72,7 @@ PAGE = """<!DOCTYPE html>
   main {
     display: grid;
     grid-template-columns: 280px 1fr 300px;
-    grid-template-rows: 220px auto auto auto;
+    grid-template-rows: 220px 520px auto 200px auto auto auto;
     gap: 10px;
     padding: 10px;
     height: auto;
@@ -95,13 +96,22 @@ PAGE = """<!DOCTYPE html>
     margin: 0 0 8px;
   }
   .sky { grid-column: 2; grid-row: 1; padding: 8px; }
-  .sky canvas, .spark canvas { width: 100%; height: calc(100% - 22px); display: block; }
+  .sky canvas, .spark canvas, .orbit canvas, .bands canvas, .gtrack canvas {
+    width: 100%; height: calc(100% - 22px); display: block;
+  }
   .wx { grid-column: 1; grid-row: 1; }
   .active { grid-column: 3; grid-row: 1; }
-  .table { grid-column: 1 / span 2; grid-row: 2; overflow: auto; }
-  .stats { grid-column: 3; grid-row: 2; overflow: auto; }
-  .shot { grid-column: 1 / -1; grid-row: 3; overflow: visible; }
-  .logs { grid-column: 1 / -1; grid-row: 4; min-height: 220px; }
+  .orbit { grid-column: 1 / span 2; grid-row: 2; padding: 8px; }
+  .idcard { grid-column: 3; grid-row: 2; overflow: auto; }
+  .elem { grid-column: 1; grid-row: 3; overflow: auto; }
+  .geom { grid-column: 2; grid-row: 3; overflow: auto; }
+  .record { grid-column: 3; grid-row: 3; overflow: auto; }
+  .bands { grid-column: 1 / span 2; grid-row: 4; padding: 8px; }
+  .gtrack { grid-column: 3; grid-row: 4; padding: 8px; }
+  .table { grid-column: 1 / span 2; grid-row: 5; overflow: auto; }
+  .stats { grid-column: 3; grid-row: 5; overflow: auto; }
+  .shot { grid-column: 1 / -1; grid-row: 6; overflow: visible; }
+  .logs { grid-column: 1 / -1; grid-row: 7; min-height: 220px; }
   #stack { display: flex; flex-direction: column; gap: 36px; }
   #stack canvas {
     display: block;
@@ -112,11 +122,11 @@ PAGE = """<!DOCTYPE html>
   #shot {
     position: absolute;
     width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
+    height: 1px;, .idcard .row, .elem .row, .geom .row, .record .row {
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: 12px; padding: 3px 0; border-bottom: 1px solid #161616;
   }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .wx .row b, .active .row b, .stats .row b, .idcard .row b, .elem .row b, .geom .row b, .recordse: collapse; font-size: 12px; }
   th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; white-space: nowrap; }
   th { color: var(--dim); font-weight: 500; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
   tr.active-row td { background: #111; }
@@ -142,7 +152,11 @@ PAGE = """<!DOCTYPE html>
   .empty { color: var(--dim); font-size: 12px; }
   @media (max-width: 1100px) {
     main { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; }
-    .sky, .wx, .active, .table, .stats, .logs, .shot { grid-column: 1; grid-row: auto; min-height: 180px; }
+    .sky, .wx, .active, .table, .stats, .logs, .shot,
+    .orbit, .idcard, .elem, .geom, .record, .bands, .gtrack {
+      grid-column: 1; grid-row: auto; min-height: 180px;
+    }
+    .orbit { min-height: 420px; }
     .shot, .logs { min-height: 0; }
   }
 </style>
@@ -152,6 +166,7 @@ PAGE = """<!DOCTYPE html>
   <div class="xmark" aria-hidden="true"></div>
   <h1>SINTRA <span>X HUD</span></h1>
   <div class="grow"></div>
+  <div class="pill" id="sat">44713</div>
   <div class="pill" id="cycle">CYCLE —</div>
   <div class="pill" id="phase">BOOT</div>
   <div class="pill" id="feed">FEED</div>
@@ -170,6 +185,34 @@ PAGE = """<!DOCTYPE html>
     <p class="k">Active track</p>
     <div id="active"><p class="empty">No object in the sweep yet.</p></div>
     <canvas id="spark" width="280" height="72"></canvas>
+  </section>
+  <section class="card orbit">
+    <p class="k" id="orbit-k">Orbit above Earth · 44713</p>
+    <canvas id="orbit" width="1100" height="640"></canvas>
+  </section>
+  <section class="card idcard">
+    <p class="k">Starlink 1007 · sweep state</p>
+    <div id="idcard"><p class="empty">Waiting for the catalog.</p></div>
+  </section>
+  <section class="card elem">
+    <p class="k" id="elem-k">Keplerian elements</p>
+    <div id="elem"><p class="empty">Waiting for the catalog.</p></div>
+  </section>
+  <section class="card geom">
+    <p class="k" id="geom-k">State · this cycle</p>
+    <div id="geom"><p class="empty">Waiting for the catalog.</p></div>
+  </section>
+  <section class="card record">
+    <p class="k">Public record · 44713</p>
+    <div id="record"></div>
+  </section>
+  <section class="card bands">
+    <p class="k">Altitude bands</p>
+    <canvas id="bands" width="1100" height="160"></canvas>
+  </section>
+  <section class="card gtrack">
+    <p class="k">Ground track · 44713</p>
+    <canvas id="gtrack" width="420" height="160"></canvas>
   </section>
   <section class="card table">
     <p class="k">Catalog · same sweep as the terminal</p>
@@ -342,6 +385,10 @@ function render(s) {
     $("shot-wait").hidden = true;
   }
   drawSky(cat, act);
+  drawOrbit(cat, act);
+  fillOrbitPanels(cat, act);
+  drawBands(cat, act);
+  drawGround(cat, act);
 }
 function paintStack(img) {
   const stack = $("stack");
@@ -368,6 +415,559 @@ function paintStack(img) {
     canvas.height = sh;
     canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
     stack.append(label, canvas);
+  });
+}
+const RE_KM = 6378.137;
+const MU_KM = 398600.4418;
+const PUBLIC_44713 = {
+  norad_id: 44713,
+  name: "STARLINK-1007",
+  intl: "2019-074A",
+  owner: "SPXS / US",
+  constellation: "Starlink v1.0",
+  kind: "Internet",
+  launch: "2019-11-11",
+  vehicle: "Falcon 9",
+  decay: "2024-10-02",
+  status: "Re-entered",
+  mass_kg: 260,
+  dry_kg: 248,
+  length_m: 0.2,
+  span_m: 9.0,
+  shape: "Box + panel",
+  bus: "Starlink",
+  maker: "SPXS",
+  inc: 53.0382,
+  raan: 329.7306,
+  ecc: 0.0008324,
+  argp: 5.1336,
+  mean_anomaly: 119.9714,
+  mean_motion: 16.29877576,
+  epoch: "2024-10-02",
+  source: "satellitemap.space/sat/44713"
+};
+function rad(d) { return Number(d) * Math.PI / 180; }
+function deg(r) { return r * 180 / Math.PI; }
+function wrap180(lon) {
+  return ((Number(lon) + 180) % 360 + 360) % 360 - 180;
+}
+function byId(cat, id) {
+  return (cat || []).find((t) => Number(t.norad_id) === Number(id)) || null;
+}
+function subjectOf(cat, act) {
+  if (act) {
+    const hit = byId(cat, act.norad_id);
+    if (hit) return hit;
+  }
+  return byId(cat, 44713) || (cat && cat[0]) || null;
+}
+function smaFromMotion(mm) {
+  const n = Number(mm) * 2 * Math.PI / 86400;
+  if (!n) return null;
+  return Math.cbrt(MU_KM / (n * n));
+}
+function regimeOf(alt) {
+  const a = Number(alt);
+  if (!Number.isFinite(a)) return "—";
+  if (a < 200) return "REENTRY / VLEO";
+  if (a < 600) return "LEO";
+  if (a < 1200) return "UPPER LEO";
+  if (a < 2000) return "LEO EDGE";
+  return "ABOVE LEO";
+}
+function toneOf(t) {
+  const c = String((t && (t.object_type || t.name)) || "").toUpperCase();
+  if (c.includes("DEBRIS") || c.includes("DEB")) return "#ff3b30";
+  if (c.includes("STATION")) return "#ffffff";
+  return "#d7e4ff";
+}
+function vadd(a, b) { return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]; }
+function vscale(a, s) { return [a[0] * s, a[1] * s, a[2] * s]; }
+function vdot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+function vcross(a, b) {
+  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+}
+function vnorm(a) {
+  const m = Math.hypot(a[0], a[1], a[2]) || 1;
+  return [a[0] / m, a[1] / m, a[2] / m];
+}
+function ecef(lat, lon, r) {
+  const cl = Math.cos(rad(lat));
+  const sl = Math.sin(rad(lat));
+  const co = Math.cos(rad(lon));
+  const so = Math.sin(rad(lon));
+  return [r * cl * co, r * cl * so, r * sl];
+}
+function ringPoints(inc, raan, argp, ecc, sma, gmst, steps) {
+  const pts = [];
+  const e = Number(ecc) || 0;
+  const a = Number(sma) || (RE_KM + 550);
+  const w = Number(argp) || 0;
+  const i = Number(inc) || 0;
+  const O = Number(raan) || 0;
+  const g = Number(gmst) || 0;
+  for (let k = 0; k <= steps; k++) {
+    const u = (k / steps) * 360;
+    const nu = u - w;
+    const r = a * (1 - e * e) / (1 + e * Math.cos(rad(nu)));
+    const lat = deg(Math.asin(Math.max(-1, Math.min(1, Math.sin(rad(i)) * Math.sin(rad(u))))));
+    const dlon = deg(Math.atan2(Math.cos(rad(i)) * Math.sin(rad(u)), Math.cos(rad(u))));
+    pts.push({ lat: lat, lon: wrap180(O + dlon - g + 180), r: r, u: u });
+  }
+  return pts;
+}
+function projector(cam) {
+  let up = [0, 0, 1];
+  if (Math.abs(vdot(up, cam)) > 0.92) up = [0, 1, 0];
+  const xaxis = vnorm(vcross(up, cam));
+  const yaxis = vcross(cam, xaxis);
+  return function (p) {
+    return { x: vdot(p, xaxis), y: vdot(p, yaxis), depth: vdot(p, cam) };
+  };
+}
+function cameraFor(pts) {
+  const a = pts[0].ecef;
+  const b = pts[Math.floor(pts.length / 3)].ecef;
+  const c = pts[Math.floor((2 * pts.length) / 3)].ecef;
+  let normal = vnorm(vcross(vadd(b, vscale(a, -1)), vadd(c, vscale(a, -1))));
+  if (normal[2] < 0) normal = vscale(normal, -1);
+  let side = vcross(normal, [0, 0, 1]);
+  if (Math.hypot(side[0], side[1], side[2]) < 1e-6) side = [1, 0, 0];
+  side = vnorm(side);
+  return vnorm(vadd(vscale(normal, 1.35), vscale(side, 0.42)));
+}
+function withEcef(pts) {
+  return pts.map((p) => Object.assign({}, p, { ecef: ecef(p.lat, p.lon, p.r) }));
+}
+function fitCanvas(c, fallbackW, fallbackH) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth || fallbackW;
+  const h = c.clientHeight || fallbackH;
+  c.width = Math.floor(w * dpr);
+  c.height = Math.floor(h * dpr);
+  const g = c.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  return { g: g, w: w, h: h };
+}
+function occluded(q) {
+  const rho = Math.hypot(q.x, q.y);
+  if (rho >= RE_KM - 8) return false;
+  const front = Math.sqrt(Math.max(RE_KM * RE_KM - rho * rho, 0));
+  return q.depth < front - 8;
+}
+function strokeRing(g, proj, pts, scale, cx, cy, color, width, dash, back) {
+  g.beginPath();
+  let pen = false;
+  let any = false;
+  pts.forEach((p) => {
+    const q = proj(p.ecef);
+    const hide = occluded(q) || (back ? q.depth >= 0 : q.depth < 0);
+    if (hide) { pen = false; return; }
+    const x = cx + q.x * scale;
+    const y = cy - q.y * scale;
+    if (!pen) { g.moveTo(x, y); pen = true; any = true; }
+    else g.lineTo(x, y);
+  });
+  if (!any) return;
+  g.strokeStyle = color;
+  g.lineWidth = width;
+  g.setLineDash(dash);
+  g.stroke();
+  g.setLineDash([]);
+}
+function drawEarth(g, proj, scale, cx, cy) {
+  g.beginPath();
+  g.arc(cx, cy, RE_KM * scale, 0, Math.PI * 2);
+  const grd = g.createRadialGradient(
+    cx - RE_KM * scale * 0.28, cy - RE_KM * scale * 0.32, RE_KM * scale * 0.08,
+    cx, cy, RE_KM * scale
+  );
+  grd.addColorStop(0, "#2a3d5c");
+  grd.addColorStop(0.62, "#121a28");
+  grd.addColorStop(1, "#070b12");
+  g.fillStyle = grd;
+  g.fill();
+  g.strokeStyle = "#d7e4ff";
+  g.lineWidth = 1.15;
+  g.stroke();
+  g.save();
+  g.beginPath();
+  g.arc(cx, cy, RE_KM * scale - 0.6, 0, Math.PI * 2);
+  g.clip();
+  g.strokeStyle = "#2c3a4e";
+  g.lineWidth = 1;
+  for (let lon = -180; lon < 180; lon += 30) {
+    g.beginPath();
+    let pen = false;
+    for (let lat = -90; lat <= 90; lat += 4) {
+      const q = proj(ecef(lat, lon, RE_KM));
+      if (q.depth <= 0) { pen = false; continue; }
+      const x = cx + q.x * scale;
+      const y = cy - q.y * scale;
+      if (!pen) { g.moveTo(x, y); pen = true; }
+      else g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+  for (let lat = -60; lat <= 60; lat += 30) {
+    g.beginPath();
+    let pen = false;
+    for (let lon = -180; lon <= 180; lon += 4) {
+      const q = proj(ecef(lat, lon, RE_KM));
+      if (q.depth <= 0) { pen = false; continue; }
+      const x = cx + q.x * scale;
+      const y = cy - q.y * scale;
+      if (!pen) { g.moveTo(x, y); pen = true; }
+      else g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+  g.restore();
+  const pole = proj(ecef(90, 0, RE_KM));
+  if (pole.depth > 0) {
+    const x = cx + pole.x * scale;
+    const y = cy - pole.y * scale;
+    g.fillStyle = "#d7e4ff";
+    g.font = "10px sans-serif";
+    g.fillText("N", x + 4, y - 2);
+  }
+}
+function markAt(g, proj, scale, cx, cy, lat, lon, r, color, arm, label) {
+  const q = proj(ecef(lat, lon, r));
+  if (occluded(q)) return;
+  const x = cx + q.x * scale;
+  const y = cy - q.y * scale;
+  g.strokeStyle = color;
+  g.lineWidth = 1.4;
+  g.beginPath();
+  g.moveTo(x - arm, y - arm); g.lineTo(x + arm, y + arm);
+  g.moveTo(x + arm, y - arm); g.lineTo(x - arm, y + arm);
+  g.stroke();
+  g.beginPath();
+  g.arc(x, y, arm + 4, 0, Math.PI * 2);
+  g.stroke();
+  if (label) {
+    g.fillStyle = color;
+    g.font = "11px sans-serif";
+    g.fillText(label, x + arm + 8, y - 6);
+  }
+}
+function drawOrbit(cat, act) {
+  const c = $("orbit");
+  if (!c) return;
+  const view = fitCanvas(c, 900, 480);
+  const g = view.g;
+  const hero = byId(cat, 44713);
+  const gmst = (hero && hero.gmst != null) ? hero.gmst : ((cat[0] && cat[0].gmst) || 0);
+  const pubSma = smaFromMotion(PUBLIC_44713.mean_motion);
+  const pub = withEcef(ringPoints(
+    PUBLIC_44713.inc, PUBLIC_44713.raan, PUBLIC_44713.argp,
+    PUBLIC_44713.ecc, pubSma, gmst, 180
+  ));
+  const heroRing = hero ? withEcef(ringPoints(
+    hero.inclination, hero.raan, hero.argp, hero.eccentricity,
+    hero.sma_km || (RE_KM + Number(hero.altitude_km || 550)),
+    hero.gmst, 180
+  )) : [];
+  const active = act ? byId(cat, act.norad_id) : null;
+  const activeRing = (active && Number(active.norad_id) !== 44713) ? withEcef(ringPoints(
+    active.inclination, active.raan, active.argp, active.eccentricity,
+    active.sma_km || (RE_KM + Number(active.altitude_km || 550)),
+    active.gmst, 140
+  )) : [];
+  const camPts = heroRing.length ? heroRing : pub;
+  const proj = projector(cameraFor(camPts));
+  let maxR = pubSma || (RE_KM + 550);
+  heroRing.forEach((p) => { if (p.r > maxR) maxR = p.r; });
+  activeRing.forEach((p) => { if (p.r > maxR) maxR = p.r; });
+  const scale = Math.min(view.w, view.h - 48) * 0.46 / maxR;
+  const cx = view.w * 0.5;
+  const cy = (view.h - 40) * 0.48;
+  strokeRing(g, proj, pub, scale, cx, cy, "rgba(255,59,48,0.55)", 1, [4, 4], true);
+  if (heroRing.length) strokeRing(g, proj, heroRing, scale, cx, cy, "rgba(255,255,255,0.35)", 1, [], true);
+  if (activeRing.length) strokeRing(g, proj, activeRing, scale, cx, cy, "rgba(215,228,255,0.35)", 1, [], true);
+  drawEarth(g, proj, scale, cx, cy);
+  strokeRing(g, proj, pub, scale, cx, cy, "#ff3b30", 1.15, [5, 4], false);
+  if (heroRing.length) strokeRing(g, proj, heroRing, scale, cx, cy, "#ffffff", 1.7, [], false);
+  if (activeRing.length) strokeRing(g, proj, activeRing, scale, cx, cy, "#d7e4ff", 1.2, [], false);
+  cat.forEach((t) => {
+    if (Number(t.norad_id) === 44713) return;
+    if (act && Number(t.norad_id) === Number(act.norad_id)) return;
+    const q = proj(ecef(t.lat, t.lon, RE_KM + 1));
+    if (q.depth <= 0) return;
+    const x = cx + q.x * scale;
+    const y = cy - q.y * scale;
+    g.fillStyle = toneOf(t);
+    g.beginPath();
+    g.arc(x, y, 2.4, 0, Math.PI * 2);
+    g.fill();
+  });
+  if (hero) {
+    const r = Number(hero.radius_km) || (RE_KM + Number(hero.altitude_km || 0));
+    const surf = proj(ecef(hero.lat, hero.lon, RE_KM));
+    const sat = proj(ecef(hero.lat, hero.lon, r));
+    if (!occluded(sat)) {
+      g.strokeStyle = "rgba(255,255,255,0.7)";
+      g.lineWidth = 1;
+      g.beginPath();
+      if (!occluded(surf) && surf.depth > 0) {
+        g.moveTo(cx + surf.x * scale, cy - surf.y * scale);
+      } else {
+        g.moveTo(cx, cy);
+      }
+      g.lineTo(cx + sat.x * scale, cy - sat.y * scale);
+      g.stroke();
+    }
+    markAt(g, proj, scale, cx, cy, hero.lat, hero.lon, r, "#ffffff", 8, "44713");
+  }
+  if (active && Number(active.norad_id) !== 44713) {
+    const r = Number(active.radius_km) || (RE_KM + Number(active.altitude_km || 0));
+    markAt(g, proj, scale, cx, cy, active.lat, active.lon, r, "#d7e4ff", 6, String(active.norad_id));
+  }
+  g.font = "11px sans-serif";
+  g.fillStyle = "#8a8a8a";
+  const legend = [
+    ["#ffffff", "44713 sweep ephemeris"],
+    ["#ff3b30", "public last plane"],
+    ["#d7e4ff", "other catalog"]
+  ];
+  legend.forEach((item, i) => {
+    const y = view.h - 18 - (legend.length - 1 - i) * 14;
+    g.strokeStyle = item[0];
+    g.lineWidth = 1.4;
+    g.beginPath();
+    g.moveTo(12, y - 3);
+    g.lineTo(28, y - 3);
+    g.stroke();
+    g.fillStyle = "#cfcfcf";
+    g.fillText(item[1], 34, y);
+  });
+  const title = $("orbit-k");
+  if (title) {
+    const alt = hero ? n(hero.altitude_km, 0) + " km" : "waiting";
+    title.textContent = "Orbit above Earth · 44713 · " + alt;
+  }
+}
+function fillBox(id, rows) {
+  const box = $(id);
+  if (!box) return;
+  box.replaceChildren();
+  if (!rows.length) {
+    box.append(Object.assign(document.createElement("p"), { className: "empty", textContent: "Waiting for the catalog." }));
+    return;
+  }
+  rows.forEach((pair) => {
+    if (pair[0] === "_note") box.append(Object.assign(document.createElement("p"), { className: "empty", textContent: pair[1] }));
+    else box.append(row(pair[0], pair[1]));
+  });
+}
+function apsis(t) {
+  const a = Number(t && t.sma_km);
+  const e = Number(t && t.eccentricity);
+  if (!Number.isFinite(a) || !Number.isFinite(e)) return [null, null];
+  return [a * (1 - e) - RE_KM, a * (1 + e) - RE_KM];
+}
+function fillOrbitPanels(cat, act) {
+  const hero = byId(cat, 44713);
+  const subj = subjectOf(cat, act);
+  const sat = $("sat");
+  if (sat) sat.textContent = hero ? "44713 LIVE" : "44713";
+  const idRows = [];
+  if (hero) {
+    idRows.push(
+      ["NORAD", String(hero.norad_id)],
+      ["Name", hero.name || "STARLINK-1007"],
+      ["Intl des", PUBLIC_44713.intl],
+      ["Class", hero.object_type || "—"],
+      ["Altitude", n(hero.altitude_km, 1) + " km"],
+      ["Velocity", n(hero.velocity_ms, 1) + " m/s"],
+      ["Latitude", n(hero.lat, 2) + " deg"],
+      ["Longitude", n(hero.lon, 2) + " deg"],
+      ["Inclination", n(hero.inclination, 2) + " deg"],
+      ["RAAN", n(hero.raan, 2) + " deg"],
+      ["Source", hero.source || "—"],
+      ["_note", "Public catalog lists this object re-entered " + PUBLIC_44713.decay + ". The ring is the sweep ephemeris."]
+    );
+  }
+  fillBox("idcard", idRows);
+  const elemK = $("elem-k");
+  const geomK = $("geom-k");
+  if (subj) {
+    if (elemK) elemK.textContent = "Elements · " + subj.norad_id;
+    if (geomK) geomK.textContent = "State · " + subj.norad_id;
+    const ends = apsis(subj);
+    fillBox("elem", [
+      ["Inclination", n(subj.inclination, 3) + " deg"],
+      ["RAAN", n(subj.raan, 3) + " deg"],
+      ["Eccentricity", n(subj.eccentricity, 7)],
+      ["Arg perigee", n(subj.argp, 2) + " deg"],
+      ["Mean anomaly", n(subj.mean_anomaly, 2) + " deg"],
+      ["True anomaly", n(subj.true_anomaly, 2) + " deg"],
+      ["Arg latitude", n(subj.arg_lat, 2) + " deg"],
+      ["Mean motion", n(subj.mean_motion, 4) + " rev/d"],
+      ["Period", n(subj.period_min, 2) + " min"],
+      ["SMA", n(subj.sma_km, 1) + " km"],
+      ["Perigee alt", n(ends[0], 1) + " km"],
+      ["Apogee alt", n(ends[1], 1) + " km"]
+    ]);
+    const on = act && Number(act.norad_id) === Number(subj.norad_id);
+    fillBox("geom", [
+      ["Regime", regimeOf(subj.altitude_km)],
+      ["Radius", n(subj.radius_km, 1) + " km"],
+      ["Speed", n(subj.velocity_ms, 1) + " m/s"],
+      ["Radial accel", n(subj.radial_accel, 2) + " m/s2"],
+      ["Sub-lat", n(subj.lat, 2) + " deg"],
+      ["Sub-lon", n(subj.lon, 2) + " deg"],
+      ["Wake sigma", n(subj.true_sigma_km, 2) + " km"],
+      ["GMST", n(subj.gmst, 2) + " deg"],
+      ["Frame", on ? (act.frame + " / " + act.frames) : "—"],
+      ["Track class", on ? (act.klass || "—") : (subj.object_type || "—")],
+      ["Ephemeris", subj.source || "—"]
+    ]);
+  } else {
+    fillBox("elem", []);
+    fillBox("geom", []);
+  }
+  const pubAlt = (pubSma) => n(pubSma - RE_KM, 1);
+  const pubSma = smaFromMotion(PUBLIC_44713.mean_motion);
+  const pubPeriod = 1440 / PUBLIC_44713.mean_motion;
+  const rec = [
+    ["Status", PUBLIC_44713.status + " " + PUBLIC_44713.decay],
+    ["Name", PUBLIC_44713.name],
+    ["Intl des", PUBLIC_44713.intl],
+    ["Owner", PUBLIC_44713.owner],
+    ["Constellation", PUBLIC_44713.constellation],
+    ["Type", PUBLIC_44713.kind],
+    ["Launch", PUBLIC_44713.launch + " · " + PUBLIC_44713.vehicle],
+    ["Mass", PUBLIC_44713.mass_kg.toFixed(0) + " kg"],
+    ["Dry mass", PUBLIC_44713.dry_kg.toFixed(0) + " kg"],
+    ["Span", n(PUBLIC_44713.span_m, 1) + " m"],
+    ["Length", n(PUBLIC_44713.length_m, 2) + " m"],
+    ["Shape", PUBLIC_44713.shape],
+    ["Bus", PUBLIC_44713.bus],
+    ["Epoch", PUBLIC_44713.epoch],
+    ["Inc", n(PUBLIC_44713.inc, 4) + " deg"],
+    ["RAAN", n(PUBLIC_44713.raan, 4) + " deg"],
+    ["Ecc", n(PUBLIC_44713.ecc, 7)],
+    ["Mean motion", n(PUBLIC_44713.mean_motion, 5) + " rev/d"],
+    ["Period", n(pubPeriod, 2) + " min"],
+    ["Derived alt", pubAlt(pubSma) + " km"]
+  ];
+  if (hero) rec.push(["Sweep alt", n(hero.altitude_km, 1) + " km"]);
+  rec.push(["_note", "Last public elements from " + PUBLIC_44713.source + ". Position there is unavailable. Sweep alt is the interceptor state, not the decay TLE."]);
+  fillBox("record", rec);
+}
+function drawBands(cat, act) {
+  const c = $("bands");
+  if (!c) return;
+  const view = fitCanvas(c, 900, 150);
+  const g = view.g;
+  if (!cat.length) {
+    g.fillStyle = "#8a8a8a";
+    g.font = "12px sans-serif";
+    g.fillText("Waiting for the catalog.", 8, 24);
+    return;
+  }
+  const lo = 150;
+  const hi = 1500;
+  const labelW = 168;
+  const right = 64;
+  const top = 8;
+  const rowH = (view.h - 16) / cat.length;
+  cat.forEach((t, i) => {
+    const y = top + i * rowH;
+    const alt = Number(t.altitude_km);
+    const x0 = labelW;
+    const x1 = view.w - right;
+    const x = x0 + ((Math.min(Math.max(alt, lo), hi) - lo) / (hi - lo)) * (x1 - x0);
+    const on = act && Number(act.norad_id) === Number(t.norad_id);
+    const hero = Number(t.norad_id) === 44713;
+    g.fillStyle = hero ? "#161616" : "transparent";
+    if (hero || on) {
+      g.fillStyle = "#111";
+      g.fillRect(0, y, view.w, rowH - 2);
+    }
+    g.fillStyle = "#8a8a8a";
+    g.font = "11px sans-serif";
+    g.fillText(String(t.norad_id) + "  " + String(t.name || "").slice(0, 16), 8, y + rowH * 0.62);
+    g.strokeStyle = "#2a2a2a";
+    g.lineWidth = 4;
+    g.beginPath();
+    g.moveTo(x0, y + rowH * 0.55);
+    g.lineTo(x1, y + rowH * 0.55);
+    g.stroke();
+    g.strokeStyle = hero ? "#ffffff" : toneOf(t);
+    g.lineWidth = on ? 2 : 1.2;
+    g.beginPath();
+    g.moveTo(x0, y + rowH * 0.55);
+    g.lineTo(x, y + rowH * 0.55);
+    g.stroke();
+    g.fillStyle = hero ? "#ffffff" : toneOf(t);
+    g.beginPath();
+    g.arc(x, y + rowH * 0.55, on ? 4 : 3, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = "#cfcfcf";
+    g.fillText(n(alt, 0), x1 + 8, y + rowH * 0.62);
+  });
+}
+function drawGround(cat, act) {
+  const c = $("gtrack");
+  if (!c) return;
+  const view = fitCanvas(c, 360, 150);
+  const g = view.g;
+  const w = view.w;
+  const h = view.h;
+  g.strokeStyle = "#2a2a2a";
+  g.lineWidth = 1;
+  for (let lon = -180; lon <= 180; lon += 60) {
+    const x = ((lon + 180) / 360) * w;
+    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke();
+  }
+  for (let lat = -60; lat <= 60; lat += 30) {
+    const y = ((90 - lat) / 180) * h;
+    g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+  }
+  const xy = (lon, lat) => [((Number(lon) + 180) / 360) * w, ((90 - Number(lat)) / 180) * h];
+  const hero = byId(cat, 44713);
+  if (hero && hero.inclination != null) {
+    const pts = ringPoints(
+      hero.inclination, hero.raan, hero.argp, hero.eccentricity,
+      hero.sma_km || (RE_KM + Number(hero.altitude_km || 550)),
+      hero.gmst, 240
+    );
+    g.strokeStyle = "#ffffff";
+    g.lineWidth = 1.3;
+    let pen = false;
+    g.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const prev = i ? pts[i - 1] : null;
+      if (prev && Math.abs(p.lon - prev.lon) > 180) pen = false;
+      const [x, y] = xy(p.lon, p.lat);
+      if (!pen) { g.moveTo(x, y); pen = true; }
+      else g.lineTo(x, y);
+    }
+    g.stroke();
+    const [x, y] = xy(hero.lon, hero.lat);
+    g.strokeStyle = "#ffffff";
+    g.beginPath();
+    g.moveTo(x - 6, y - 6); g.lineTo(x + 6, y + 6);
+    g.moveTo(x + 6, y - 6); g.lineTo(x - 6, y + 6);
+    g.stroke();
+  } else {
+    g.fillStyle = "#8a8a8a";
+    g.font = "12px sans-serif";
+    g.fillText("Waiting for 44713.", 8, 20);
+  }
+  cat.forEach((t) => {
+    if (Number(t.norad_id) === 44713) return;
+    const [x, y] = xy(t.lon, t.lat);
+    const on = act && Number(act.norad_id) === Number(t.norad_id);
+    g.fillStyle = on ? "#ffffff" : toneOf(t);
+    g.beginPath();
+    g.arc(x, y, on ? 3.2 : 2, 0, Math.PI * 2);
+    g.fill();
   });
 }
 function drawSky(cat, act) {
@@ -788,6 +1388,18 @@ def note_catalog(targets, env):
                 if _f(tgt.true_wake_sigma_m) is not None
                 else None,
                 "source": str(tgt.ephemeris_source),
+                "raan": _f(getattr(tgt, "raan_deg", None)),
+                "eccentricity": _f(getattr(tgt, "eccentricity", None)),
+                "mean_motion": _f(getattr(tgt, "mean_motion_rev_day", None)),
+                "argp": _f(getattr(tgt, "argp_deg", None)),
+                "mean_anomaly": _f(getattr(tgt, "mean_anomaly_deg", None)),
+                "true_anomaly": _f(getattr(tgt, "true_anomaly_deg", None)),
+                "arg_lat": _f(getattr(tgt, "arg_lat_deg", None)),
+                "sma_km": _f(getattr(tgt, "sma_km", None)),
+                "radius_km": _f(getattr(tgt, "radius_km", None)),
+                "period_min": _f(getattr(tgt, "period_min", None)),
+                "gmst": _f(getattr(tgt, "gmst_deg", None)),
+                "radial_accel": _f(getattr(tgt, "radial_accel_ms2", None)),
             }
         )
     with STATE.lock:
