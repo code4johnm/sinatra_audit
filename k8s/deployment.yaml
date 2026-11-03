@@ -46,6 +46,7 @@ spec:
           ports:
             - name: hud
               containerPort: 8080
+              hostPort: 8080
               protocol: TCP
           readinessProbe:
             httpGet:

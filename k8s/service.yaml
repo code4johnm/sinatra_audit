@@ -7,7 +7,7 @@ metadata:
   annotations:
     sinatra/note: >-
       Web HUD for the live interceptor. The terminal log and PNG still run.
-      Port 8080 serves the page. It is not authenticated.
+      The page is published on this laptop at port 8080 by hostPort. It is not authenticated.
 spec:
   type: ClusterIP
   selector:

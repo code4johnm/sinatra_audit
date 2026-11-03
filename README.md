@@ -54,10 +54,11 @@ Live feeds often fall back. NOAA's solar-wind URL can 404, and the script then p
 
 The image is `python:3.12-slim-bookworm` plus numpy, scipy, sympy, matplotlib, requests, and netCDF4. The user inside the image is uid 10001. The web HUD uses the standard library only.
 
-`k8s/deployment.yaml` runs one replica as that uid, with a read-only root filesystem, every capability dropped, and emptyDir volumes on `/tmp` and `/output`. `k8s/service.yaml` publishes port 8080.
+`k8s/deployment.yaml` runs one replica as that uid, with a read-only root filesystem, every capability dropped, and emptyDir volumes on `/tmp` and `/output`. `k8s/service.yaml` publishes the page on this laptop at `http://127.0.0.1:8080/`. No second Docker process is required.
 
 ```bash
-kubectl port-forward svc/sinatra 8080:8080
+kubectl delete svc sinatra
+kubectl apply -f k8s/service.yaml
 ```
 
 ## Diagrams

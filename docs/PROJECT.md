@@ -46,7 +46,7 @@ docker build -t sinatra-sandbox:local .
 ./run-live.sh
 ```
 
-A successful pass prints a cycle line, a catalog of seven objects, and a save line. The PNG is `output/sintra_live_norad_intercept_hud.png`. The page is `http://127.0.0.1:8080`. Set `SINTRA_HUD=0` to skip the page.
+A successful pass prints a cycle line, a catalog of seven objects, and a save line. The PNG is `output/sintra_live_norad_intercept_hud.png`. The Service publishes the page at `http://127.0.0.1:8080/` on this laptop. Set `SINTRA_HUD=0` to skip the page.
 
 The output directory must be writable by the process uid. A fuse filesystem that ignores `chmod` fails `savefig` for uid 10001.
 
