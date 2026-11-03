@@ -1211,27 +1211,27 @@ function earthPlate(radiusPx) {
       const nrm = depth / RE_KM;
       const light = 0.36 + 0.64 * nrm;
       const spec = land ? 0 : Math.pow(nrm, 22) * 0.4;
-      let r, g, b;
+      let cr, cg, cb;
       if (!land) {
-        r = 8 * light + 186 * spec;
-        g = 44 * light + 214 * spec;
-        b = 82 * light + 232 * spec;
+        cr = 8 * light + 186 * spec;
+        cg = 44 * light + 214 * spec;
+        cb = 82 * light + 232 * spec;
       } else if (ice) {
-        r = 206 * light;
-        g = 220 * light;
-        b = 228 * light;
+        cr = 206 * light;
+        cg = 220 * light;
+        cb = 228 * light;
       } else if (coast) {
-        r = 196 * light;
-        g = 214 * light;
-        b = 196 * light;
+        cr = 196 * light;
+        cg = 214 * light;
+        cb = 196 * light;
       } else {
-        r = 58 * light;
-        g = 108 * light;
-        b = 64 * light;
+        cr = 58 * light;
+        cg = 108 * light;
+        cb = 64 * light;
       }
-      data[o] = Math.max(0, Math.min(255, r));
-      data[o + 1] = Math.max(0, Math.min(255, g));
-      data[o + 2] = Math.max(0, Math.min(255, b));
+      data[o] = Math.max(0, Math.min(255, cr));
+      data[o + 1] = Math.max(0, Math.min(255, cg));
+      data[o + 2] = Math.max(0, Math.min(255, cb));
       data[o + 3] = 255;
     }
   }
