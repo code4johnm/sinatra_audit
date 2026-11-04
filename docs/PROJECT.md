@@ -30,7 +30,7 @@ Build `sinatra-sandbox:local`, run one container, and read the HUD. The web page
 
 ## 6. Architecture
 
-`launch.py` selects the Matplotlib Agg backend. The container command runs `sintra_live_sky_catalog_interceptor.py`, which loops forever. The same process serves `sintra_web_hud.py` on port 8080. The image user is uid 10001. The root filesystem is read-only and capabilities are dropped. The laptop Deployment bind-mounts the live interceptor. Its working directory is `/output`.
+`launch.py` selects the Matplotlib Agg backend. The container command runs `sintra_live_sky_catalog_interceptor.py`, which loops forever. The same process serves `sintra_web_hud.py` on port 8080. The image user is uid 10001. The root filesystem is read-only and capabilities are dropped. `k8s/deployment.yaml` bind-mounts this checkout at `/opt/sinatra` and is held at 0 replicas. The laptop Deployment does the same mount and writes `/output` on the host. Working directory is `/output`. The bus listener is Deployment `yaml-listen`, not this pod. See `DEPLOY.md`.
 
 ## 7. Build procedures
 

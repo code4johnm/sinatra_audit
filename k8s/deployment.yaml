@@ -1,11 +1,16 @@
+# SINTRA live interceptor only. The bus listener is Deployment yaml-listen
+# from /mnt/5TB/git/bus-listener. It is not a container in this pod.
+# Application files are this checkout, mounted read-only at /opt/sinatra.
+# Replicas stay 0 until scaled. See DEPLOY.md.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: sinatra
+  namespace: default
   labels:
     app: sinatra
 spec:
-  replicas: 1
+  replicas: 0
   selector:
     matchLabels:
       app: sinatra
@@ -26,6 +31,11 @@ spec:
         - name: sinatra
           image: sinatra-sandbox:local
           imagePullPolicy: Never
+          command:
+            - python
+            - /opt/sinatra/launch.py
+            - /opt/sinatra/sintra_live_sky_catalog_interceptor.py
+          workingDir: /output
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -40,6 +50,9 @@ spec:
             - name: HOME
               value: /tmp
             - name: PYTHONUNBUFFERED
+              value: "1"
+            # The source mount is read-only. Do not try to write bytecode beside the scripts.
+            - name: PYTHONDONTWRITEBYTECODE
               value: "1"
             - name: SINTRA_HUD_PORT
               value: "8080"
@@ -62,11 +75,18 @@ spec:
               cpu: "2"
               memory: 4Gi
           volumeMounts:
+            - name: source
+              mountPath: /opt/sinatra
+              readOnly: true
             - name: tmp
               mountPath: /tmp
             - name: output
               mountPath: /output
       volumes:
+        - name: source
+          hostPath:
+            path: /mnt/5TB/git/sinatra_audit
+            type: Directory
         - name: tmp
           emptyDir:
             medium: Memory

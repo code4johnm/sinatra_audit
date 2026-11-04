@@ -36,11 +36,7 @@ docker run --rm --name sinatra-live \
 
 The PNG is written in `output/`. The web HUD is `http://127.0.0.1:8080`. It is the same process and the same loop: terminal lines, plus custody, space-weather, and error stats. Set `SINTRA_HUD=0` to skip the page. Kubernetes still runs as uid 10001: its `emptyDir` honors `fsGroup`, unlike this bind mount.
 
-Kubernetes manifests are in `k8s/`. They expect the image name `sinatra-sandbox:local` on the same machine (`imagePullPolicy: Never`).
-
-```bash
-kubectl apply -f k8s/deployment.yaml -f k8s/service.yaml
-```
+Kubernetes manifests are in `k8s/`. The Deployment runs this checkout, mounted read-only at `/opt/sinatra`. The image `sinatra-sandbox:local` is only the Python runtime (`imagePullPolicy: Never`). The bus listener is not in this pod. See [DEPLOY.md](DEPLOY.md).
 
 ## Expected output The web page follows the same lines and updates the active track while the sweep is still running.
 
@@ -54,12 +50,7 @@ Live feeds often fall back. NOAA's solar-wind URL can 404, and the script then p
 
 The image is `python:3.12-slim-bookworm` plus numpy, scipy, sympy, matplotlib, requests, and netCDF4. The user inside the image is uid 10001. The web HUD uses the standard library only.
 
-`k8s/deployment.yaml` runs one replica as that uid, with a read-only root filesystem, every capability dropped, and emptyDir volumes on `/tmp` and `/output`. `k8s/service.yaml` publishes the page on this laptop at `http://127.0.0.1:8080/`. No second Docker process is required.
-
-```bash
-kubectl delete svc sinatra
-kubectl apply -f k8s/service.yaml
-```
+`k8s/deployment.yaml` is held at 0 replicas. The container command is `python /opt/sinatra/launch.py /opt/sinatra/sintra_live_sky_catalog_interceptor.py`, working directory `/output`, uid 10001, read-only root filesystem, every capability dropped. `/opt/sinatra` is hostPath `/mnt/5TB/git/sinatra_audit`. `/tmp` and `/output` are emptyDir. Port 8080 is named `hud` and is a hostPort. `k8s/service.yaml` selects that port. When a replica is running, the page on this laptop is `http://127.0.0.1:8080/`. Deployment `yaml-listen` is the bus listener and is a different workload. Details and the apply command are in [DEPLOY.md](DEPLOY.md).
 
 ## Diagrams
 

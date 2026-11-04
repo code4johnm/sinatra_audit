@@ -60,11 +60,11 @@ spec:
       volumes:
         - name: launch
           hostPath:
-            path: /home/user/sinatra-sandbox/launch.py
+            path: /mnt/5TB/git/sinatra_audit/launch.py
             type: File
         - name: source
           hostPath:
-            path: /mnt/5TB/git/sinatra
+            path: /mnt/5TB/git/sinatra_audit
             type: Directory
         - name: output
           hostPath:
