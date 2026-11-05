@@ -564,7 +564,25 @@ _PAGE = """<!DOCTYPE html>
     line-height: 1.3;
   }
   @media (max-width: 900px) {
-    .clock-banner { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .clock-banner {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px 8px 5px;
+    }
+    .clock-banner .clock-tile { padding: 3px 5px; }
+    .clock-banner .clock-tile span {
+      font-size: 9px;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .clock-banner .clock-tile b {
+      margin-top: 1px;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+    }
+    .clock-banner .clock-tile em { display: none; }
   }
   @media (max-width: 700px) {
     main { width: calc(100% - 24px); }
@@ -579,7 +597,14 @@ _PAGE = """<!DOCTYPE html>
     pre { height: auto; min-height: 180px; max-height: 50vh; }
   }
   @media (max-width: 560px) {
-    .clock-banner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .clock-banner {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 3px;
+      padding: 3px 6px 4px;
+    }
+    .clock-banner .clock-tile { padding: 2px 3px; }
+    .clock-banner .clock-tile span { font-size: 8px; letter-spacing: 0.02em; }
+    .clock-banner .clock-tile b { font-size: 11px; letter-spacing: 0; }
   }
 </style>
 </head>
