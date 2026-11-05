@@ -1,0 +1,136 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "sinatra",
+  "documentNamespace": "https://local.invalid/sinatra/sbom",
+  "creationInfo": {
+    "created": "2026-11-04T21:20:00Z",
+    "creators": [
+      "Tool: service-packaging"
+    ]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-app",
+      "name": "sinatra",
+      "versionInfo": "local",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-dep-0",
+      "name": "python",
+      "versionInfo": "3.12-slim-bookworm",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "comment": "tag not digest-pinned"
+    },
+    {
+      "SPDXID": "SPDXRef-dep-1",
+      "name": "numpy",
+      "versionInfo": "2.2.6",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "comment": ""
+    },
+    {
+      "SPDXID": "SPDXRef-dep-2",
+      "name": "scipy",
+      "versionInfo": "1.15.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "comment": ""
+    },
+    {
+      "SPDXID": "SPDXRef-dep-3",
+      "name": "sympy",
+      "versionInfo": "1.14.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "comment": ""
+    },
+    {
+      "SPDXID": "SPDXRef-dep-4",
+      "name": "matplotlib",
+      "versionInfo": "3.10.3",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "comment": ""
+    },
+    {
+      "SPDXID": "SPDXRef-dep-5",
+      "name": "requests",
+      "versionInfo": "2.32.4",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "comment": ""
+    },
+    {
+      "SPDXID": "SPDXRef-dep-6",
+      "name": "netCDF4",
+      "versionInfo": "1.7.2",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "comment": ""
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relatedSpdxElement": "SPDXRef-app",
+      "relationshipType": "DESCRIBES"
+    },
+    {
+      "spdxElementId": "SPDXRef-app",
+      "relatedSpdxElement": "SPDXRef-dep-0",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-app",
+      "relatedSpdxElement": "SPDXRef-dep-1",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-app",
+      "relatedSpdxElement": "SPDXRef-dep-2",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-app",
+      "relatedSpdxElement": "SPDXRef-dep-3",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-app",
+      "relatedSpdxElement": "SPDXRef-dep-4",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-app",
+      "relatedSpdxElement": "SPDXRef-dep-5",
+      "relationshipType": "DEPENDS_ON"
+    },
+    {
+      "spdxElementId": "SPDXRef-app",
+      "relatedSpdxElement": "SPDXRef-dep-6",
+      "relationshipType": "DEPENDS_ON"
+    }
+  ]
+}

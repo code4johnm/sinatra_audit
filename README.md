@@ -108,3 +108,7 @@ kubectl logs job/sinatra
 ```
 
 `/out` is an `emptyDir`, so the PNG is deleted along with the pod, and `ttlSecondsAfterFinished: 3600` removes the Job an hour after it finishes.
+
+## Packaging
+
+The running interceptor is described in [docs/packaging/index.md](docs/packaging/index.md). The CLI remains `./run-live.sh`. This package does not apply `k8s/deployment.yaml` or `k8s/service.yaml`.
