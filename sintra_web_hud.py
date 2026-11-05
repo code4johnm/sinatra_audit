@@ -3,7 +3,7 @@
 
 Same process, same continuous cycle, same terminal lines. The page adds
 custody, space-weather, and error stats the terminal table does not chart.
-The Earth frame draws every catalog satellite live. Existing frames stay.
+One Earth frame draws every catalog satellite. Text readouts stack under it.
 Stdlib only, so the locked-down image does not gain a dependency.
 """
 
@@ -44,14 +44,14 @@ PAGE = """<!DOCTYPE html>
   html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
   body {
     font-family: var(--track-font);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.01em;
     background-image:
       linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
     background-size: 56px 56px;
   }
   header {
-    display: flex; align-items: center; gap: 16px;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px;
     padding: 14px 18px; border-bottom: 1px solid var(--line);
     background: rgba(0,0,0,0.8);
   }
@@ -72,21 +72,19 @@ PAGE = """<!DOCTYPE html>
   .pill.live { border-color: #fff; }
   .pill.down { border-color: var(--red); color: var(--red); }
   main {
-    display: grid;
-    grid-template-columns: 280px 1fr 300px;
-    grid-template-rows: minmax(560px, 64vh) 220px auto 200px 460px auto auto;
-    gap: 10px;
-    padding: 10px;
-    height: auto;
-    min-height: calc(100vh - 57px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: min(960px, calc(100% - 28px));
+    margin: 0 auto;
+    padding: 14px 0 32px;
   }
   .card {
     position: relative;
     border: 1px solid var(--line);
     background: rgba(0,0,0,0.78);
-    padding: 12px 14px;
-    min-height: 0;
-    overflow: hidden;
+    padding: 16px 18px 18px;
+    overflow: visible;
   }
   .card:before, .card:after {
     content: ""; position: absolute; width: 9px; height: 9px; border: 1px solid #fff;
@@ -94,31 +92,36 @@ PAGE = """<!DOCTYPE html>
   .card:before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
   .card:after { right: -1px; bottom: -1px; border-left: 0; border-top: 0; }
   .k {
-    font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--dim);
-    margin: 0 0 8px;
+    font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--dim);
+    margin: 0 0 12px;
   }
-  .orbit { grid-column: 1 / -1; grid-row: 1; padding: 8px; min-height: 560px; }
-  .sky { grid-column: 2; grid-row: 2; padding: 8px; }
-  .sky canvas, .spark canvas, .orbit canvas, .bands canvas, .gtrack canvas {
-    width: 100%; height: calc(100% - 22px); display: block;
+  .stage {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
   }
-  .orbit canvas, .gtrack canvas { touch-action: none; cursor: grab; }
-  .wx { grid-column: 1; grid-row: 2; }
-  .active { grid-column: 3; grid-row: 2; }
-  .idcard { grid-column: 1; grid-row: 3; overflow: auto; }
-  .elem { grid-column: 2; grid-row: 3; overflow: auto; }
-  .geom { grid-column: 3; grid-row: 3; overflow: auto; }
-  .record { grid-column: 1; grid-row: 4; overflow: auto; }
-  .bands { grid-column: 2 / span 2; grid-row: 4; padding: 8px; }
-  .gtrack { grid-column: 1 / -1; grid-row: 5; padding: 8px; }
-  .table { grid-column: 1 / span 2; grid-row: 6; overflow: auto; }
-  .stats { grid-column: 3; grid-row: 6; overflow: auto; }
-  .shot { grid-column: 1 / -1; grid-row: 7; overflow: visible; }
-  .logs { grid-column: 1 / -1; grid-row: 8; min-height: 220px; }
-  #stack { display: flex; flex-direction: column; gap: 36px; }
-  #stack canvas {
+  .orbit .stage { height: 560px; }
+  .bands .stage { height: 220px; }
+  .spark-stage {
+    position: relative;
+    height: 88px;
+    margin-top: 16px;
+    overflow: hidden;
+  }
+  .stage canvas, .spark-stage canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     display: block;
-    width: 50%;
+  }
+  .orbit canvas { touch-action: none; cursor: grab; }
+  .table { overflow: visible; }
+  #stack { display: flex; flex-direction: column; gap: 28px; }
+  #stack canvas {
+    position: static;
+    display: block;
+    width: 100%;
     height: auto;
     background: #070a12;
   }
@@ -129,48 +132,77 @@ PAGE = """<!DOCTYPE html>
     opacity: 0;
     pointer-events: none;
   }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .wx .row, .active .row, .stats .row, .idcard .row, .elem .row, .geom .row, .record .row {
-    display: flex; justify-content: space-between; gap: 12px;
-    font-size: 12px; padding: 3px 0; border-bottom: 1px solid #161616;
+  table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 15px; }
+  .field {
+    display: block;
+    padding: 11px 0 12px;
+    border-bottom: 1px solid #1c1c1c;
   }
-  .wx .row b, .active .row b, .stats .row b, .idcard .row b, .elem .row b, .geom .row b, .record .row b {
-    font-weight: 500; font-variant-numeric: tabular-nums;
+  .field > span {
+    display: block;
+    margin: 0 0 4px;
+    color: var(--dim);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .field .line {
+    display: block;
+    margin: 0;
+    color: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    text-transform: none;
+    line-height: 1.45;
+  }
+  .field b {
+    display: block;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 1.45;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
     font-family: var(--track-num);
+    white-space: pre-line;
+    word-break: break-word;
   }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; white-space: nowrap; font-family: var(--track-font); }
-  th { color: var(--dim); font-weight: 500; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .field.on { box-shadow: inset 2px 0 0 #fff; padding-left: 10px; }
+  .note {
+    margin: 12px 0 0;
+    color: #cfcfcf;
+    font-size: 15px;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid #1c1c1c;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    vertical-align: top;
+    line-height: 1.4;
+    font-family: var(--track-font);
+  }
+  th { color: var(--dim); font-weight: 500; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; }
   tr.active-row td { background: #111; }
   .num { font-variant-numeric: tabular-nums; font-family: var(--track-num); }
-  .wx .row, .active .row, .stats .row {
-    display: flex; justify-content: space-between; gap: 12px;
-    font-size: 12px; padding: 3px 0; border-bottom: 1px solid #161616;
-  }
-  .wx .row b, .active .row b, .stats .row b {
-    font-weight: 500; font-variant-numeric: tabular-nums;
-    font-family: var(--track-num);
-  }
-  .big { font-size: 28px; letter-spacing: 0.08em; margin: 4px 0 8px; }
-  .klass { font-size: 11px; letter-spacing: 0.14em; }
+  .big { font-size: 34px; line-height: 1.15; letter-spacing: 0.04em; margin: 0 0 6px; }
+  .klass { font-size: 15px; line-height: 1.4; letter-spacing: 0.06em; margin: 0 0 8px; }
   .klass.debris { color: var(--red); }
   .klass.station { color: #fff; }
   .klass.payload { color: var(--ice); }
   pre {
-    margin: 0; height: 220px; overflow: auto;
-    font: 11px/1.45 var(--track-font);
-    letter-spacing: 0.04em;
+    margin: 0; height: 280px; overflow: auto;
+    font: 14px/1.5 var(--track-font);
+    letter-spacing: 0.01em;
     color: #cfcfcf; white-space: pre-wrap; word-break: break-word;
   }
-  .empty { color: var(--dim); font-size: 12px; font-family: var(--track-font); }
-  @media (max-width: 1100px) {
-    main { grid-template-columns: 1fr; grid-template-rows: auto; height: auto; }
-    .sky, .wx, .active, .table, .stats, .logs, .shot,
-    .orbit, .idcard, .elem, .geom, .record, .bands, .gtrack {
-      grid-column: 1; grid-row: auto; min-height: 180px;
-    }
-    .orbit { min-height: 420px; }
-    .shot, .logs { min-height: 0; }
-    .gtrack { min-height: 440px; }
+  .empty { color: var(--dim); font-size: 15px; line-height: 1.45; font-family: var(--track-font); }
+  @media (max-width: 700px) {
+    .orbit .stage { height: 420px; }
+    .bands .stage { height: 200px; }
   }
 </style>
 </head>
@@ -186,52 +218,48 @@ PAGE = """<!DOCTYPE html>
   <div class="pill" id="clock">—</div>
 </header>
 <main>
-  <section class="card wx">
+  <section class="card plot orbit">
+    <p class="k" id="orbit-k">Earth view</p>
+    <div class="stage"><canvas id="orbit"></canvas></div>
+  </section>
+  <section class="card">
+    <p class="k">Positions</p>
+    <div id="roster"><p class="empty">Waiting for the catalog.</p></div>
+  </section>
+  <section class="card plot bands">
+    <p class="k">Altitude bands</p>
+    <div class="stage"><canvas id="bands"></canvas></div>
+  </section>
+  <section class="card">
     <p class="k">Space weather</p>
     <div id="wx"><p class="empty">Waiting for the cycle.</p></div>
   </section>
-  <section class="card sky">
-    <p class="k">X reticle · sub-satellite</p>
-    <canvas id="sky" width="900" height="240"></canvas>
-  </section>
-  <section class="card active">
+  <section class="card">
     <p class="k">Active track</p>
     <div id="active"><p class="empty">No object in the sweep yet.</p></div>
-    <canvas id="spark" width="280" height="72"></canvas>
+    <div class="spark-stage"><canvas id="spark"></canvas></div>
   </section>
-  <section class="card orbit">
-    <p class="k" id="orbit-k">Earth view · all positions</p>
-    <canvas id="orbit" width="1100" height="640"></canvas>
-  </section>
-  <section class="card idcard">
+  <section class="card">
     <p class="k">Starlink 1007 · sweep state</p>
     <div id="idcard"><p class="empty">Waiting for the catalog.</p></div>
   </section>
-  <section class="card elem">
+  <section class="card">
     <p class="k" id="elem-k">Keplerian elements</p>
     <div id="elem"><p class="empty">Waiting for the catalog.</p></div>
   </section>
-  <section class="card geom">
+  <section class="card">
     <p class="k" id="geom-k">State · this cycle</p>
     <div id="geom"><p class="empty">Waiting for the catalog.</p></div>
   </section>
-  <section class="card record">
+  <section class="card">
     <p class="k">Public record · 44713</p>
     <div id="record"></div>
-  </section>
-  <section class="card bands">
-    <p class="k">Altitude bands</p>
-    <canvas id="bands" width="1100" height="160"></canvas>
-  </section>
-  <section class="card gtrack">
-    <p class="k">Ground track · all positions</p>
-    <canvas id="gtrack" width="900" height="440"></canvas>
   </section>
   <section class="card table">
     <p class="k">Catalog · same sweep as the terminal</p>
     <div id="table"></div>
   </section>
-  <section class="card stats">
+  <section class="card">
     <p class="k">Dashboard</p>
     <div id="stats"></div>
   </section>
@@ -314,8 +342,6 @@ function startLivePump() {
     if (ts - last > 50) {
       last = ts;
       drawOrbit(liveState.catalog, liveState.active);
-      drawSky(liveState.catalog, liveState.active);
-      drawGround(liveState.catalog, liveState.active);
     }
     requestAnimationFrame(frame);
   }
@@ -335,7 +361,7 @@ function klassOf(name) {
 }
 function row(label, value) {
   const d = document.createElement("div");
-  d.className = "row";
+  d.className = "field";
   const s = document.createElement("span");
   s.textContent = label;
   const b = document.createElement("b");
@@ -490,7 +516,7 @@ function paintStack(img) {
     ["3. Track error", 0.545, 0.088, 0.435, 0.422],
     ["4. Mass fingerprint", 0.545, 0.535, 0.435, 0.445]
   ];
-  stack.replaceChildren();
+  const frag = document.createDocumentFragment();
   panels.forEach((p) => {
     const label = document.createElement("p");
     label.className = "k";
@@ -503,8 +529,9 @@ function paintStack(img) {
     canvas.width = sw;
     canvas.height = sh;
     canvas.getContext("2d").drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-    stack.append(label, canvas);
+    frag.append(label, canvas);
   });
+  stack.replaceChildren(frag);
 }
 const RE_KM = 6378.137;
 const MU_KM = 398600.4418;
@@ -634,10 +661,14 @@ function withEcef(pts) {
 }
 function fitCanvas(c, fallbackW, fallbackH) {
   const dpr = window.devicePixelRatio || 1;
-  const w = c.clientWidth || fallbackW;
-  const h = c.clientHeight || fallbackH;
-  c.width = Math.floor(w * dpr);
-  c.height = Math.floor(h * dpr);
+  const w = Math.max(1, Math.round(c.clientWidth || fallbackW));
+  const h = Math.max(1, Math.round(c.clientHeight || fallbackH));
+  const bw = Math.max(1, Math.floor(w * dpr));
+  const bh = Math.max(1, Math.floor(h * dpr));
+  if (c.width !== bw || c.height !== bh) {
+    c.width = bw;
+    c.height = bh;
+  }
   const g = c.getContext("2d");
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, w, h);
@@ -1349,38 +1380,6 @@ function markAt(g, proj, scale, cx, cy, lat, lon, r, color, arm, label) {
     g.fillText(label, x + arm + 8, y - 6);
   }
 }
-function drawRoster(g, live, act, x0, y0, width) {
-  g.font = hudFont(11);
-  g.fillStyle = "#8a8a8a";
-  g.fillText("LIVE ROSTER", x0, y0 + 12);
-  g.font = hudNum(10);
-  g.fillStyle = "#8a8a8a";
-  g.fillText("LAT      LON      ALT", x0 + 14, y0 + 26);
-  live.forEach((p, i) => {
-    const y = y0 + 48 + i * 32;
-    const id = Number(p.src.norad_id);
-    const on = act && Number(act.norad_id) === id;
-    const hero = id === 44713;
-    if (on || hero) {
-      g.fillStyle = "#111111";
-      g.fillRect(x0 - 4, y - 14, Math.max(40, width - 8), 30);
-    }
-    g.fillStyle = hero ? "#ffffff" : toneOf(p.src);
-    g.beginPath();
-    g.arc(x0 + 5, y - 4, hero || on ? 3.4 : 2.5, 0, Math.PI * 2);
-    g.fill();
-    g.font = hudFont(11);
-    g.fillStyle = "#f4f4f4";
-    g.fillText(String(id) + "  " + String(p.src.name || "").slice(0, 16), x0 + 14, y);
-    g.font = hudNum(10);
-    g.fillStyle = p.hidden ? "#8a8a8a" : "#cfcfcf";
-    g.fillText(
-      n(p.lat, 1).padStart(7, " ") + "  " + n(p.lon, 1).padStart(7, " ") + "  " + n(p.alt, 0).padStart(5, " ") + " km",
-      x0 + 14,
-      y + 13
-    );
-  });
-}
 function drawOrbit(cat, act) {
   const c = $("orbit");
   if (!c) return;
@@ -1392,7 +1391,7 @@ function drawOrbit(cat, act) {
     g.fillStyle = "#8a8a8a";
     g.font = hudFont(12);
     g.fillText("Waiting for the catalog.", 16, 28);
-    if (title) title.textContent = "Earth view · all positions";
+    if (title) title.textContent = "Earth view";
     return;
   }
   const gmst = live[0].gmst;
@@ -1411,16 +1410,13 @@ function drawOrbit(cat, act) {
       ))
     };
   });
-  const wide = view.w >= 820;
-  const rosterW = wide ? Math.min(300, Math.max(228, view.w * 0.28)) : 0;
-  const rosterH = wide ? 0 : Math.min(view.h * 0.46, 40 + live.length * 32);
-  const plotW = Math.max(160, view.w - rosterW);
-  const plotH = Math.max(160, view.h - rosterH);
+  const plotW = view.w;
+  const plotH = view.h;
   let maxR = pubSma || (RE_KM + 550);
   live.forEach((p) => { if (p.r > maxR) maxR = p.r; });
-  const scale = Math.min(plotW - 16, plotH - 36) * 0.46 / maxR * viewCam.zoom;
+  const scale = Math.min(plotW - 28, plotH - 48) * 0.46 / maxR * viewCam.zoom;
   const cx = plotW * 0.5;
-  const cy = plotH * 0.48;
+  const cy = plotH * 0.46;
   const proj = projector(earthCamera());
   c.dataset.plotW = String(plotW);
   strokeRing(g, proj, pub, scale, cx, cy, "rgba(255,59,48,0.40)", 1, [4, 4], true);
@@ -1484,8 +1480,6 @@ function drawOrbit(cat, act) {
     g.fillStyle = "#cfcfcf";
     g.fillText(item[2], 34, y);
   });
-  if (wide) drawRoster(g, live, act, plotW + 8, 4, rosterW - 8);
-  else drawRoster(g, live, act, 12, plotH + 2, view.w - 16);
   if (title) title.textContent = "Earth view · " + live.length + " positions";
 }
 
@@ -1498,7 +1492,7 @@ function fillBox(id, rows) {
     return;
   }
   rows.forEach((pair) => {
-    if (pair[0] === "_note") box.append(Object.assign(document.createElement("p"), { className: "empty", textContent: pair[1] }));
+    if (pair[0] === "_note") box.append(Object.assign(document.createElement("p"), { className: "note", textContent: pair[1] }));
     else box.append(row(pair[0], pair[1]));
   });
 }
@@ -1508,7 +1502,33 @@ function apsis(t) {
   if (!Number.isFinite(a) || !Number.isFinite(e)) return [null, null];
   return [a * (1 - e) - RE_KM, a * (1 + e) - RE_KM];
 }
+function fillRoster(cat, act) {
+  const box = $("roster");
+  if (!box) return;
+  box.replaceChildren();
+  if (!cat || !cat.length) {
+    box.append(Object.assign(document.createElement("p"), { className: "empty", textContent: "Waiting for the catalog." }));
+    return;
+  }
+  cat.forEach((t) => {
+    const on = act && Number(act.norad_id) === Number(t.norad_id);
+    const d = document.createElement("div");
+    d.className = "field" + (on ? " on" : "");
+    const s = document.createElement("span");
+    s.textContent = String(t.norad_id) + "  " + (t.name || "");
+    const b = document.createElement("b");
+    [n(t.lat, 2) + "° latitude", n(t.lon, 2) + "° longitude", n(t.altitude_km, 1) + " km altitude"].forEach((line) => {
+      const p = document.createElement("span");
+      p.className = "line";
+      p.textContent = line;
+      b.append(p);
+    });
+    d.append(s, b);
+    box.append(d);
+  });
+}
 function fillOrbitPanels(cat, act) {
+  fillRoster(cat, act);
   const hero = byId(cat, 44713);
   const subj = subjectOf(cat, act);
   const sat = $("sat");
@@ -1611,10 +1631,16 @@ function drawBands(cat, act) {
   }
   const lo = 150;
   const hi = 1500;
-  const labelW = 168;
   const right = 64;
   const top = 8;
   const rowH = (view.h - 16) / cat.length;
+  g.font = hudFont(13);
+  let labelW = 96;
+  cat.forEach((t) => {
+    const label = String(t.norad_id) + "  " + String(t.name || "");
+    labelW = Math.max(labelW, g.measureText(label).width + 18);
+  });
+  labelW = Math.min(labelW, Math.max(120, view.w - right - 96));
   cat.forEach((t, i) => {
     const y = top + i * rowH;
     const alt = Number(t.altitude_km);
@@ -1628,9 +1654,9 @@ function drawBands(cat, act) {
       g.fillStyle = "#111";
       g.fillRect(0, y, view.w, rowH - 2);
     }
-    g.fillStyle = "#8a8a8a";
-    g.font = hudFont(11);
-    g.fillText(String(t.norad_id) + "  " + String(t.name || "").slice(0, 16), 8, y + rowH * 0.62);
+    g.fillStyle = "#cfcfcf";
+    g.font = hudFont(13);
+    g.fillText(String(t.norad_id) + "  " + String(t.name || ""), 8, y + rowH * 0.62);
     g.strokeStyle = "#2a2a2a";
     g.lineWidth = 4;
     g.beginPath();
@@ -1651,117 +1677,13 @@ function drawBands(cat, act) {
     g.fillText(n(alt, 0), x1 + 8, y + rowH * 0.62);
   });
 }
-function strokeTrack(g, pts, xy) {
-  let pen = false;
-  g.beginPath();
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i];
-    const prev = i ? pts[i - 1] : null;
-    if (prev && Math.abs(p.lon - prev.lon) > 180) pen = false;
-    const pair = xy(p.lon, p.lat);
-    if (!pen) { g.moveTo(pair[0], pair[1]); pen = true; }
-    else g.lineTo(pair[0], pair[1]);
-  }
-  g.stroke();
-}
-function drawGround(cat, act) {
-  const c = $("gtrack");
+function drawSpark(act) {
+  const c = $("spark");
   if (!c) return;
-  const view = fitCanvas(c, 900, 440);
+  const view = fitCanvas(c, 900, 88);
   const g = view.g;
   const w = view.w;
   const h = view.h;
-  const live = liveFixes(cat);
-  if (!live.length) {
-    g.fillStyle = "#8a8a8a";
-    g.font = hudFont(12);
-    g.fillText("Waiting for the catalog.", 8, 24);
-    return;
-  }
-  const radiusPx = Math.max(48, Math.min(w - 28, h - 20) * 0.5 * viewCam.zoom);
-  const scale = radiusPx / RE_KM;
-  const cx = w * 0.5;
-  const cy = h * 0.5;
-  const proj = projector(earthCamera());
-  drawEarth(g, proj, scale, cx, cy);
-  live.forEach((p) => {
-    const id = Number(p.src.norad_id);
-    const hero = id === 44713;
-    const on = act && Number(act.norad_id) === id;
-    if (p.src.inclination == null) return;
-    const pts = withEcef(ringPoints(
-      p.src.inclination, p.src.raan, p.src.argp, p.src.eccentricity,
-      p.src.sma_km || p.r, p.gmst, hero || on ? 200 : 96
-    ).map((q) => ({ lat: q.lat, lon: q.lon, r: RE_KM + 18 })));
-    const color = hero ? "#ffffff" : toneOf(p.src);
-    strokeRing(g, proj, pts, scale, cx, cy, color, hero ? 1.6 : 1.05, [], false);
-  });
-  live.forEach((p) => {
-    const id = Number(p.src.norad_id);
-    const hero = id === 44713;
-    const on = act && Number(act.norad_id) === id;
-    const color = hero ? "#ffffff" : toneOf(p.src);
-    markAt(g, proj, scale, cx, cy, p.lat, p.lon, RE_KM + 24, color, hero || on ? 6 : 3.5, hero || on ? String(id) : "");
-  });
-}
-
-function drawSky(cat, act) {
-  const c = $("sky");
-  if (!c) return;
-  const dpr = window.devicePixelRatio || 1;
-  const w = c.clientWidth || 640;
-  const h = c.clientHeight || 200;
-  c.width = Math.floor(w * dpr);
-  c.height = Math.floor(h * dpr);
-  const g = c.getContext("2d");
-  g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  g.clearRect(0, 0, w, h);
-  g.strokeStyle = "#2a2a2a";
-  g.lineWidth = 1;
-  for (let lon = -180; lon <= 180; lon += 30) {
-    const x = ((lon + 180) / 360) * w;
-    g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke();
-  }
-  for (let lat = -60; lat <= 60; lat += 30) {
-    const y = ((90 - lat) / 180) * h;
-    g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
-  }
-  const xy = (lon, lat) => [((Number(lon) + 180) / 360) * w, ((90 - Number(lat)) / 180) * h];
-  const live = liveFixes(cat);
-  live.forEach((p, i) => {
-    const pair = xy(p.lon, p.lat);
-    const x = pair[0];
-    const y = pair[1];
-    const id = Number(p.src.norad_id);
-    const on = act && Number(act.norad_id) === id;
-    const hero = id === 44713;
-    const color = hero ? "#ffffff" : toneOf(p.src);
-    g.strokeStyle = on || hero ? "#fff" : color;
-    g.lineWidth = on || hero ? 1.6 : 1;
-    const arm = on ? 16 : (hero ? 10 : 6);
-    g.beginPath();
-    g.moveTo(x - arm, y - arm); g.lineTo(x + arm, y + arm);
-    g.moveTo(x + arm, y - arm); g.lineTo(x - arm, y + arm);
-    g.stroke();
-    if (on) {
-      g.beginPath(); g.arc(x, y, 22, 0, Math.PI * 2); g.stroke();
-    }
-    g.font = hudFont(11);
-    g.fillStyle = color;
-    g.fillText(String(id), x + arm + 6, y - 4 - (i % 2) * 10);
-  });
-}
-
-function drawSpark(act) {
-  const c = $("spark");
-  const dpr = window.devicePixelRatio || 1;
-  const w = c.clientWidth || 260;
-  const h = 72;
-  c.width = Math.floor(w * dpr);
-  c.height = Math.floor(h * dpr);
-  const g = c.getContext("2d");
-  g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  g.clearRect(0, 0, w, h);
   if (!act || !(act.spark_sin || []).length) return;
   const series = [
     [act.spark_imm || [], "#ff3b30"],
@@ -1846,7 +1768,6 @@ function bindGlobe(id) {
   });
 }
 bindGlobe("orbit");
-bindGlobe("gtrack");
 tick();
 setInterval(tick, 700);
 </script>
