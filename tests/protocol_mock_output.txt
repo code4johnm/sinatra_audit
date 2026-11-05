@@ -1,4 +1,10 @@
-test_ftp_handler (__main__.ProtocolHandlerMock.test_ftp_handler) ... FTP start ftp://127.0.0.1:37749/ running=True root=/tmp/sintra-ftp-mock-gluw0irp
+test_icmp_handler (__main__.IcmpPingerMock.test_icmp_handler) ...   reject icmp frequency: Frequency must be 100 to 60000 ms.
+  reject icmp broadcast: Use a unicast IPv4 address.
+ICMP start running=True host=127.0.0.1 interval_ms=100
+ICMP sample sent=2 received=2 rtt_ms=0.17 error=''
+ICMP stop running=False
+ok
+test_ftp_handler (__main__.ProtocolHandlerMock.test_ftp_handler) ... FTP start ftp://127.0.0.1:45185/ running=True root=/tmp/sintra-ftp-mock-30ffaici
 FTP save {'ok': True, 'name': 'note.txt', 'dir': '', 'bytes': 23}
 FTP list ['note.txt']
 FTP open note.txt bytes=23 text='sinatra audit ftp mock\n'
@@ -9,13 +15,13 @@ FTP open note.txt bytes=23 text='sinatra audit ftp mock\n'
 FTP stop running=False
 FTP disabled error='SINTRA_FTP is off' running=False
 ok
-test_snmp_handler (__main__.ProtocolHandlerMock.test_snmp_handler) ... SNMP start snmp://127.0.0.1:45419/ running=True
+test_snmp_handler (__main__.ProtocolHandlerMock.test_snmp_handler) ... SNMP start snmp://127.0.0.1:48569/ running=True
 SNMP get sysDescr {'oid': '1.3.6.1.2.1.1.1.0', 'type': 'string', 'value': 'sinatra_audit snmp'}
 SNMP next {'oid': '1.3.6.1.2.1.1.2.0', 'type': 'oid', 'value': '1.3.6.1.4.1.55555.1'}
 SNMP walk count=7
   1.3.6.1.2.1.1.1.0 string sinatra_audit snmp
   1.3.6.1.2.1.1.2.0 oid 1.3.6.1.4.1.55555.1
-  1.3.6.1.2.1.1.3.0 ticks 115
+  1.3.6.1.2.1.1.3.0 ticks 144
   1.3.6.1.2.1.1.4.0 string sinatra_audit
   1.3.6.1.2.1.1.5.0 string computer
   1.3.6.1.2.1.1.6.0 string sinatra_audit
@@ -29,7 +35,7 @@ SNMP set read-only {'oid': '1.3.6.1.2.1.1.1.0', 'type': 'none', 'value': 'no suc
 SNMP stop running=False
 SNMP disabled error='SINTRA_SNMP is off' running=False
 ok
-test_tftp_handler (__main__.ProtocolHandlerMock.test_tftp_handler) ... TFTP start tftp://127.0.0.1:36755/ running=True root=/tmp/sintra-tftp-mock-1kwogkjx
+test_tftp_handler (__main__.ProtocolHandlerMock.test_tftp_handler) ... TFTP start tftp://127.0.0.1:39101/ running=True root=/tmp/sintra-tftp-mock-81sci220
 TFTP save {'ok': True, 'name': 'note.txt', 'bytes': 24}
 TFTP list ['note.txt'] note=''
 TFTP open note.txt bytes=24 text='sinatra audit tftp mock\n'
@@ -42,6 +48,6 @@ TFTP disabled error='SINTRA_TFTP is off' running=False
 ok
 
 ----------------------------------------------------------------------
-Ran 3 tests in 4.618s
+Ran 4 tests in 5.163s
 
 OK

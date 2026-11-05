@@ -36,6 +36,9 @@ graph TD
   debris[DebrisMetrics]
   hud[HUD PNG]
   web[Web HUD]
+  add[Add link on the web HUD]
+  catalog[(Link catalog)]
+  potential[Potential API feed]
 
   noaa --> sw
   noaa -.-> fallback
@@ -56,7 +59,16 @@ graph TD
   jko --> debris
   debris --> hud
   debris --> web
+  noaa --> catalog
+  cele --> catalog
+  add --> catalog
+  catalog --> web
+  catalog -.-> potential
+  potential -.-> sw
+  potential -.-> prop
 ```
+
+Dotted edges from the link catalog are potential feeds. The cycle still calls NOAA and CelesTrak. An added link is saved and shown, and the interceptor does not request it.
 
 ## Components
 
@@ -70,6 +82,8 @@ graph LR
   pf[Particle filter]
   engine[Blind multi-scale engine]
   metrics[DebrisMetrics]
+  added[Added API link]
+  links[(Link catalog)]
 
   weather --> target
   target --> env
@@ -78,6 +92,9 @@ graph LR
   detector --> pf
   target --> engine
   engine --> metrics
+  added --> links
+  links -.-> weather
+  links -.-> target
 ```
 
 ## Deployment
@@ -91,8 +108,10 @@ graph TD
   script[Sky-catalog interceptor]
   loop[Continuous cycle]
   png[HUD PNG on the output volume]
+  web[Web HUD port 8080]
+  catalog[(Link catalog on the output volume)]
   dep[Kubernetes Deployment]
-  svc[Headless Service unused port 9]
+  svc[Service port 8080]
   jobfile[Dockerfile.job]
   jobimg[Image sinatra latest]
   job[Kubernetes Job one shot]
@@ -104,6 +123,8 @@ graph TD
   launch --> script
   script --> loop
   loop --> png
+  loop --> web
+  web --> catalog
   dep --> image
   svc --> dep
   jobfile --> jobimg

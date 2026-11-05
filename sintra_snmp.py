@@ -408,6 +408,13 @@ def get_oid(body):
     return {"rows": _request(_GET, [oid])}
 
 
+def next_oid(body):
+    if not isinstance(body, dict):
+        raise ValueError("Body must be JSON.")
+    oid = _oid_text(_oid_tuple(body.get("oid")))
+    return {"rows": _request(_NEXT, [oid])}
+
+
 def walk_oid(body):
     if not isinstance(body, dict):
         raise ValueError("Body must be JSON.")

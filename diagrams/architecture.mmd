@@ -7,6 +7,8 @@ graph LR
   pf[Particle filter]
   engine[Blind multi-scale engine]
   metrics[DebrisMetrics]
+  added[Added API link]
+  links[(Link catalog)]
 
   weather --> target
   target --> env
@@ -15,3 +17,6 @@ graph LR
   detector --> pf
   target --> engine
   engine --> metrics
+  added --> links
+  links -.-> weather
+  links -.-> target

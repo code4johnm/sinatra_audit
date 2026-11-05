@@ -3,3 +3,4 @@ __pycache__/
 .venv/
 output/
 out/
+sintra_links.sqlite

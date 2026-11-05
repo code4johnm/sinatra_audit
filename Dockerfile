@@ -24,9 +24,13 @@ RUN pip install \
 COPY launch.py /opt/sandbox/launch.py
 COPY sintra_cia_redacted_demo.py \
      sintra_definitive_math_proof.py \
+     sintra_ftp.py \
      sintra_hud_style.py \
+     sintra_icmp.py \
      sintra_live_mission_demo.py \
      sintra_live_sky_catalog_interceptor.py \
+     sintra_snmp.py \
+     sintra_tftp.py \
      sintra_web_hud.py \
      /opt/sinatra/
 

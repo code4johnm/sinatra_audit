@@ -82,6 +82,9 @@ spec:
               mountPath: /tmp
             - name: output
               mountPath: /output
+            - name: wan-ip
+              mountPath: /var/lib/wan-ip
+              readOnly: true
       volumes:
         - name: source
           hostPath:
@@ -94,3 +97,7 @@ spec:
         - name: output
           emptyDir:
             sizeLimit: 1Gi
+        - name: wan-ip
+          hostPath:
+            path: /home/user/sinatra-sandbox/wan-ip
+            type: DirectoryOrCreate

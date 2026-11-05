@@ -55,6 +55,9 @@ spec:
               readOnly: true
             - name: output
               mountPath: /output
+            - name: wan-ip
+              mountPath: /var/lib/wan-ip
+              readOnly: true
             - name: tmp
               mountPath: /tmp
       volumes:
@@ -69,6 +72,10 @@ spec:
         - name: output
           hostPath:
             path: /home/user/sinatra-sandbox/output
+            type: DirectoryOrCreate
+        - name: wan-ip
+          hostPath:
+            path: /home/user/sinatra-sandbox/wan-ip
             type: DirectoryOrCreate
         - name: tmp
           emptyDir: {}

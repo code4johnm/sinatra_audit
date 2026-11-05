@@ -46,7 +46,7 @@ Live feeds often fall back. NOAA's solar-wind URL can 404, and the script then p
 
 ## Architecture
 
-`launch.py` forces the Matplotlib Agg backend and returns immediately from `show()`, so the loop is not blocked by a window. The container command runs `sintra_live_sky_catalog_interceptor.py`. That script's `__main__` calls `run_live_sky_interceptor()` forever and closes figures between cycles. The same process serves `sintra_web_hud.py` on port 8080. The page is unauthenticated. It shows the terminal log, the latest PNG, and dashboard stats from the cycle.
+`launch.py` forces the Matplotlib Agg backend and returns immediately from `show()`, so the loop is not blocked by a window. The container command runs `sintra_live_sky_catalog_interceptor.py`. That script's `__main__` calls `run_live_sky_interceptor()` forever and closes figures between cycles. The same process serves `sintra_web_hud.py` on port 8080. The page is unauthenticated. It shows the terminal log, the latest PNG, dashboard stats from the cycle, a compact process panel, a full-width banner of 24-hour clocks for local time, Zulu, Eastern, GMT, Jerusalem, Tehran, and Tokyo, every IPv4 address plus Docker, Kubernetes, host LAN, and WAN, and the link catalog. Host LAN and WAN come from the wan-ip-checker relay file, the same file the k3s dashboard reads. The page also has an FTP file client: a link box, file boxes, and Open and Save. The FTP server listens on 127.0.0.1 port 2121 and stays inside the output ftp directory. Green means that row is active. Red means it is inactive. Live NOAA and CelesTrak URLs are stored in that catalog. A link added on the page is saved there as a potential feed. The cycle does not request an added URL.
 
 The image is `python:3.12-slim-bookworm` plus numpy, scipy, sympy, matplotlib, requests, and netCDF4. The user inside the image is uid 10001. The web HUD uses the standard library only.
 
@@ -76,6 +76,9 @@ graph TD
   debris[DebrisMetrics]
   hud[HUD PNG]
   web[Web HUD]
+  add[Add link on the web HUD]
+  catalog[(Link catalog)]
+  potential[Potential API feed]
 
   noaa --> sw
   noaa -.-> fallback
@@ -96,7 +99,16 @@ graph TD
   jko --> debris
   debris --> hud
   debris --> web
+  noaa --> catalog
+  cele --> catalog
+  add --> catalog
+  catalog --> web
+  catalog -.-> potential
+  potential -.-> sw
+  potential -.-> prop
 ```
+
+Dotted edges from the link catalog are potential feeds. The cycle still calls NOAA and CelesTrak. An added link is saved and shown, and the interceptor does not request it.
 
 ```mermaid
 graph TD
@@ -108,6 +120,7 @@ graph TD
   loop[Continuous cycle]
   png[HUD PNG on the output volume]
   web[Web HUD port 8080]
+  catalog[(Link catalog on the output volume)]
   dep[Kubernetes Deployment]
   svc[Service port 8080]
   jobfile[Dockerfile.job]
@@ -122,6 +135,7 @@ graph TD
   script --> loop
   loop --> png
   loop --> web
+  web --> catalog
   dep --> image
   svc --> dep
   jobfile --> jobimg

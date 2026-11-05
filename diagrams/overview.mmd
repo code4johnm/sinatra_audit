@@ -17,6 +17,9 @@ graph TD
   debris[DebrisMetrics]
   hud[HUD PNG]
   web[Web HUD]
+  add[Add link on the web HUD]
+  catalog[(Link catalog)]
+  potential[Potential API feed]
 
   noaa --> sw
   noaa -.-> swfb
@@ -37,3 +40,10 @@ graph TD
   jko --> debris
   debris --> hud
   debris --> web
+  noaa --> catalog
+  cele --> catalog
+  add --> catalog
+  catalog --> web
+  catalog -.-> potential
+  potential -.-> sw
+  potential -.-> prop

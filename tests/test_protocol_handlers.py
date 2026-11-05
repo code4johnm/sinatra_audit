@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mock the Sinatra Audit FTP, TFTP, and SNMP handlers on localhost.
+"""Mock the Sinatra Audit FTP, TFTP, SNMP, and ICMP handlers on localhost.
 
 Each listener binds 127.0.0.1 on a free high port and a temporary directory.
 The run does not use port 8080, 2121, 6969, or 1161, and it does not start
@@ -10,6 +10,7 @@ import os
 import socket
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -17,6 +18,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 import sintra_ftp
+import sintra_icmp
 import sintra_snmp
 import sintra_tftp
 
@@ -300,6 +302,46 @@ class ProtocolHandlerMock(unittest.TestCase):
                     os.environ.pop(key, None)
                 else:
                     os.environ[key] = value
+
+
+class IcmpPingerMock(unittest.TestCase):
+    def tearDown(self):
+        sintra_icmp.stop_pinger()
+
+    def test_icmp_handler(self):
+        refused = _expect(
+            "icmp frequency",
+            ValueError,
+            lambda: sintra_icmp.configure({"host": "127.0.0.1", "interval_ms": 1, "up": True}),
+        )
+        self.assertIn("100", refused)
+        refused_host = _expect(
+            "icmp broadcast",
+            ValueError,
+            lambda: sintra_icmp.configure({"host": "255.255.255.255", "interval_ms": 200}),
+        )
+        self.assertIn("unicast", refused_host)
+        started = sintra_icmp.configure({
+            "host": "127.0.0.1",
+            "interval_ms": 100,
+            "up": True,
+        })
+        _say(f"ICMP start running={started['running']} host={started['host']} interval_ms={started['interval_ms']}")
+        self.assertTrue(started["running"])
+        self.assertEqual(started["interval_ms"], 100)
+        deadline = time.monotonic() + 3
+        latest = started
+        while time.monotonic() < deadline and latest["received"] < 1:
+            time.sleep(0.15)
+            latest = sintra_icmp.status()
+        _say(
+            f"ICMP sample sent={latest['sent']} received={latest['received']} "
+            f"rtt_ms={latest['rtt_ms']} error={latest['error']!r}"
+        )
+        self.assertGreaterEqual(latest["received"], 1)
+        stopped = sintra_icmp.stop_pinger()
+        _say(f"ICMP stop running={stopped['running']}")
+        self.assertFalse(stopped["running"])
 
 
 if __name__ == "__main__":

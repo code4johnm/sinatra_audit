@@ -7,14 +7,33 @@ One Earth frame draws every catalog satellite. Text readouts stack under it.
 Stdlib only, so the locked-down image does not gain a dependency.
 """
 
+import csv
+import fcntl
+import getpass
 import json
 import math
 import os
+import platform
 import re
+import socket
+import sqlite3
+import struct
+import subprocess
 import sys
 import threading
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
+
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+import sintra_ftp
+import sintra_icmp
+import sintra_snmp
+import sintra_tftp
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 HOST = os.environ.get("SINTRA_HUD_HOST", "0.0.0.0")
@@ -22,13 +41,112 @@ PORT = int(os.environ.get("SINTRA_HUD_PORT", "8080"))
 PNG_NAME = "sintra_live_norad_intercept_hud.png"
 WEB_PNG_NAME = "sintra_live_norad_intercept_hud_web.png"
 PNG_SIG = b"\x89PNG\r\n\x1a\n"
+_IPV4 = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+_LIVE_LINKS = (
+    (
+        "NOAA SWPC magnetic field",
+        "https://services.swpc.noaa.gov/products/solar-wind/mag-5-minute.json",
+        "DSCOVR 5-minute magnetic field. The cycle requests this every pass.",
+    ),
+    (
+        "NOAA SWPC solar wind plasma",
+        "https://services.swpc.noaa.gov/products/solar-wind/plasma-5-minute.json",
+        "DSCOVR 5-minute plasma. The cycle requests this every pass.",
+    ),
+    (
+        "CelesTrak GP 25544 ISS",
+        "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=json",
+        "NORAD GP elements for ISS. The cycle requests this every pass.",
+    ),
+    (
+        "CelesTrak GP 48274 CSS",
+        "https://celestrak.org/NORAD/elements/gp.php?CATNR=48274&FORMAT=json",
+        "NORAD GP elements for CSS. The cycle requests this every pass.",
+    ),
+    (
+        "CelesTrak GP 39084 LANDSAT 8",
+        "https://celestrak.org/NORAD/elements/gp.php?CATNR=39084&FORMAT=json",
+        "NORAD GP elements for LANDSAT 8. The cycle requests this every pass.",
+    ),
+    (
+        "CelesTrak GP 44713 STARLINK-1007",
+        "https://celestrak.org/NORAD/elements/gp.php?CATNR=44713&FORMAT=json",
+        "NORAD GP elements for STARLINK-1007. The cycle requests this every pass.",
+    ),
+    (
+        "CelesTrak GP 49863 COSMOS 1408 DEB",
+        "https://celestrak.org/NORAD/elements/gp.php?CATNR=49863&FORMAT=json",
+        "NORAD GP elements for COSMOS 1408 debris. The cycle requests this every pass.",
+    ),
+    (
+        "CelesTrak GP 30934 FENGYUN 1C DEB",
+        "https://celestrak.org/NORAD/elements/gp.php?CATNR=30934&FORMAT=json",
+        "NORAD GP elements for FENGYUN 1C debris. The cycle requests this every pass.",
+    ),
+    (
+        "CelesTrak GP 55001 CZ-6A DEB",
+        "https://celestrak.org/NORAD/elements/gp.php?CATNR=55001&FORMAT=json",
+        "NORAD GP elements for CZ-6A debris. The cycle requests this every pass.",
+    ),
+)
 
-PAGE = """<!DOCTYPE html>
+
+def _star_points(cx, cy, outer):
+    inner = outer * 0.382
+    pts = []
+    for i in range(10):
+        ang = -math.pi / 2 + i * math.pi / 5
+        radius = outer if i % 2 == 0 else inner
+        pts.append(f"{cx + radius * math.cos(ang):.2f},{cy + radius * math.sin(ang):.2f}")
+    return " ".join(pts)
+
+
+def _flag_data_url():
+    """United States flag in shades of black, used as the page background.
+
+    Fills stay near black. The steps are only wide enough to separate the
+    thirteen stripes, the canton, and the fifty stars.
+    """
+    stripe_dark = "#000000"
+    stripe_light = "#121212"
+    canton_fill = "#080808"
+    star_fill = "#1e1e1e"
+    stripe_h = 100 / 13
+    parts = [
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 100" preserveAspectRatio="xMidYMid slice">'
+    ]
+    for i in range(13):
+        fill = stripe_dark if i % 2 == 0 else stripe_light
+        parts.append(
+            f'<rect y="{i * stripe_h:.3f}" width="190" height="{stripe_h + 0.15:.3f}" fill="{fill}"/>'
+        )
+    canton_h = 7 * stripe_h
+    canton_w = 76
+    parts.append(f'<rect width="{canton_w}" height="{canton_h:.3f}" fill="{canton_fill}"/>')
+    gap_x = canton_w / 12
+    gap_y = canton_h / 10
+    outer = min(gap_x, gap_y) * 0.46
+    for row in range(9):
+        y = gap_y * (row + 1)
+        if row % 2 == 0:
+            xs = [gap_x * (1 + 2 * col) for col in range(6)]
+        else:
+            xs = [gap_x * (2 + 2 * col) for col in range(5)]
+        for x in xs:
+            parts.append(f'<polygon points="{_star_points(x, y, outer)}" fill="{star_fill}"/>')
+    parts.append("</svg>")
+    from urllib.parse import quote
+
+    return "data:image/svg+xml," + quote("".join(parts), safe="")
+
+
+_PAGE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SINTRA X HUD</title>
+<title>Sinatra Audit</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23000'/%3E%3Ccircle cx='16' cy='16' r='2.2' fill='%23f4f4f4'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='4.6' fill='none' stroke='%23f4f4f4' stroke-width='1.3'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='4.6' fill='none' stroke='%23f4f4f4' stroke-width='1.3' transform='rotate(60 16 16)'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='4.6' fill='none' stroke='%23f4f4f4' stroke-width='1.3' transform='rotate(120 16 16)'/%3E%3C/svg%3E">
 <style>
   :root {
     --bg: #050505;
@@ -41,27 +159,29 @@ PAGE = """<!DOCTYPE html>
     --track-num: ui-monospace, Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; font-family: var(--track-font); }
-  html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
+  html, body { margin: 0; min-height: 100%; background: #000; color: var(--ink); }
   body {
     font-family: var(--track-font);
     letter-spacing: 0.01em;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
-    background-size: 56px 56px;
+    background-color: #000;
+    background-image: url("__FLAG_BG__");
+    background-repeat: no-repeat;
+    background-position: left top;
+    background-size: cover;
+    background-attachment: fixed;
+  }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 8;
+    background: rgba(0,0,0,0.92);
   }
   header {
     display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px;
     padding: 14px 18px; border-bottom: 1px solid var(--line);
-    background: rgba(0,0,0,0.8);
+    background: transparent;
   }
-  .xmark { width: 28px; height: 28px; position: relative; flex: 0 0 28px; }
-  .xmark:before, .xmark:after {
-    content: ""; position: absolute; left: 13px; top: 0;
-    width: 2px; height: 28px; background: #fff;
-  }
-  .xmark:before { transform: rotate(42deg); }
-  .xmark:after { transform: rotate(-42deg); }
+  .mark { width: 32px; height: 32px; flex: 0 0 32px; display: block; }
   h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: 0.22em; }
   h1 span { color: var(--dim); font-weight: 450; letter-spacing: 0.16em; }
   .grow { flex: 1; }
@@ -75,7 +195,7 @@ PAGE = """<!DOCTYPE html>
     display: flex;
     flex-direction: column;
     gap: 14px;
-    width: min(960px, calc(100% - 28px));
+    width: calc(100% - 88px);
     margin: 0 auto;
     padding: 14px 0 32px;
   }
@@ -100,6 +220,7 @@ PAGE = """<!DOCTYPE html>
     width: 100%;
     overflow: hidden;
   }
+  .plot.orbit { background: #000; }
   .orbit .stage { height: 560px; }
   .bands .stage { height: 220px; }
   .spark-stage {
@@ -117,11 +238,11 @@ PAGE = """<!DOCTYPE html>
   }
   .orbit canvas { touch-action: none; cursor: grab; }
   .table { overflow: visible; }
-  #stack { display: flex; flex-direction: column; gap: 28px; }
+  #stack { display: flex; flex-direction: column; gap: 28px; align-items: flex-start; }
   #stack canvas {
     position: static;
     display: block;
-    width: 100%;
+    width: 50%;
     height: auto;
     background: #070a12;
   }
@@ -200,16 +321,228 @@ PAGE = """<!DOCTYPE html>
     color: #cfcfcf; white-space: pre-wrap; word-break: break-word;
   }
   .empty { color: var(--dim); font-size: 15px; line-height: 1.45; font-family: var(--track-font); }
+  .link-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 18px;
+  }
+  .link-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--dim);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .link-form input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    background: #050505;
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+  }
+  .link-form textarea {
+    width: 100%;
+    min-height: 160px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    background: #050505;
+    color: var(--ink);
+    font: 14px/1.45 var(--track-num);
+    resize: vertical;
+  }
+  .ftp-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ftp-actions button { margin-top: 0; }
+  .ftp-link {
+    width: 100%;
+    margin: 0;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 14px;
+  }
+  .link-form button, .link-remove {
+    align-self: flex-start;
+    margin-top: 8px;
+    padding: 10px 14px;
+    border: 1px solid #fff;
+    background: transparent;
+    color: var(--ink);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .link-form button.ftp-link {
+    align-self: stretch;
+    margin-top: 0;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    font-size: 14px;
+  }
+  .link-msg { min-height: 1.4em; margin: 0; }
+  .dash-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+  }
+  .tile {
+    min-width: 0;
+    border: 1px solid #1c1c1c;
+    padding: 8px 10px;
+  }
+  .tile > span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--dim);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .tile b {
+    display: block;
+    margin-top: 4px;
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 1.35;
+    font-family: var(--track-num);
+    word-break: break-word;
+  }
+  .lamp {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--red);
+    flex: 0 0 9px;
+  }
+  .lamp.on { background: #30d158; }
+  .k.sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px;
+  }
+  .net-group + .net-group { margin-top: 16px; }
+  .net-scroll, .link-scroll {
+    max-height: 280px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .addr, .link-obj {
+    display: grid;
+    grid-template-columns: 9px minmax(0, 1fr);
+    gap: 2px 10px;
+    align-items: start;
+    border: 1px solid #1c1c1c;
+    padding: 8px 10px;
+  }
+  .addr .addr-main, .link-obj .link-main { min-width: 0; }
+  .addr-top, .link-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    align-items: baseline;
+  }
+  .addr-top b, .link-top b {
+    font-weight: 500;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+  }
+  .addr-top em, .link-top em {
+    font-style: normal;
+    color: var(--dim);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .addr-ip, .link-url {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--track-num);
+    font-size: 13px;
+    line-height: 1.4;
+    word-break: break-all;
+  }
+  .link-obj .note { margin: 4px 0 0; font-size: 13px; }
+  .link-obj .link-remove { margin-top: 8px; }
+  .clock-banner {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+    padding: 8px 14px 10px;
+    border-bottom: 1px solid #2a2a2a;
+    background: rgba(0,0,0,0.92);
+    font-family: "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  .clock-banner .clock-tile {
+    min-width: 0;
+    border: 1px solid #1c1c1c;
+    background: rgba(0,0,0,0.55);
+    padding: 8px 10px;
+  }
+  .clock-banner .clock-tile span {
+    display: block;
+    color: #8a8a8a;
+    font-size: 11px;
+    font-weight: 450;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+  .clock-banner .clock-tile b {
+    display: block;
+    margin-top: 4px;
+    color: #f4f4f4;
+    font-weight: 500;
+    font-size: 20px;
+    line-height: 1.2;
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  .clock-banner .clock-tile em {
+    display: block;
+    margin-top: 3px;
+    color: #8a8a8a;
+    font-style: normal;
+    font-weight: 400;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    line-height: 1.3;
+  }
+  @media (max-width: 900px) {
+    .clock-banner { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
   @media (max-width: 700px) {
     .orbit .stage { height: 420px; }
     .bands .stage { height: 200px; }
   }
+  @media (max-width: 560px) {
+    .clock-banner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
 </style>
 </head>
 <body>
+<div class="topbar">
 <header>
-  <div class="xmark" aria-hidden="true"></div>
-  <h1>SINTRA <span>X HUD</span></h1>
+  <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
+    <circle cx="16" cy="16" r="2.2" fill="#f4f4f4"/>
+    <ellipse cx="16" cy="16" rx="12" ry="4.6" fill="none" stroke="#f4f4f4" stroke-width="1.3"/>
+    <ellipse cx="16" cy="16" rx="12" ry="4.6" fill="none" stroke="#f4f4f4" stroke-width="1.3" transform="rotate(60 16 16)"/>
+    <ellipse cx="16" cy="16" rx="12" ry="4.6" fill="none" stroke="#f4f4f4" stroke-width="1.3" transform="rotate(120 16 16)"/>
+  </svg>
+  <h1>Sinatra Audit</h1>
   <div class="grow"></div>
   <div class="pill" id="sat">44713</div>
   <div class="pill" id="cycle">CYCLE —</div>
@@ -217,6 +550,8 @@ PAGE = """<!DOCTYPE html>
   <div class="pill" id="feed">FEED</div>
   <div class="pill" id="clock">—</div>
 </header>
+<div id="clocks" class="clock-banner" aria-label="Clocks"></div>
+</div>
 <main>
   <section class="card plot orbit">
     <p class="k" id="orbit-k">Earth view</p>
@@ -225,6 +560,25 @@ PAGE = """<!DOCTYPE html>
   <section class="card">
     <p class="k">Positions</p>
     <div id="roster"><p class="empty">Waiting for the catalog.</p></div>
+  </section>
+  <section class="card dash">
+    <p class="k">System</p>
+    <div id="env" class="dash-grid"><p class="empty">Waiting for the HUD.</p></div>
+  </section>
+  <section class="card dash">
+    <p class="k">Network</p>
+    <div id="net"><p class="empty">Waiting for the HUD.</p></div>
+  </section>
+  <section class="card dash">
+    <p class="k">API links</p>
+    <div id="links" class="link-scroll"><p class="empty">Waiting for the catalog.</p></div>
+    <form class="link-form" id="link-form">
+      <label>Name<input id="link-name" name="name" maxlength="80" required autocomplete="off"></label>
+      <label>URL<input id="link-url" name="url" type="url" maxlength="500" required autocomplete="off" placeholder="https://"></label>
+      <label>Note<input id="link-note" name="note" maxlength="240" autocomplete="off"></label>
+      <button type="submit">Add link</button>
+      <p class="note link-msg" id="link-msg">Added links are stored in the catalog. The cycle still calls the live feeds. An added link is a potential feed.</p>
+    </form>
   </section>
   <section class="card plot bands">
     <p class="k">Altitude bands</p>
@@ -272,6 +626,89 @@ PAGE = """<!DOCTYPE html>
   <section class="card logs">
     <p class="k">Terminal log</p>
     <pre id="logs"></pre>
+  </section>
+  <section class="card dash">
+    <p class="k">Listeners</p>
+    <div class="ftp-actions">
+      <button type="button" id="listeners-up">Up all</button>
+      <button type="button" id="listeners-down">Down all</button>
+    </div>
+    <p class="note link-msg" id="listeners-msg"></p>
+  </section>
+  <section class="card dash">
+    <p class="k">ICMP</p>
+    <p class="note" id="ping-status">ICMP pinger is down.</p>
+    <form class="link-form" id="ping-form">
+      <label>Target<input id="ping-host" type="text" maxlength="253" autocomplete="off" placeholder="127.0.0.1" value="127.0.0.1"></label>
+      <label>Frequency ms<input id="ping-ms" type="number" min="100" max="60000" step="1" value="1000"></label>
+      <div class="ftp-actions">
+        <button type="button" id="ping-up">Up</button>
+        <button type="button" id="ping-down">Down</button>
+      </div>
+      <p class="note link-msg" id="ping-msg"></p>
+    </form>
+  </section>
+  <section class="card dash">
+    <p class="k">Files</p>
+    <p class="note" id="ftp-status">FTP server starting.</p>
+    <form class="link-form" id="ftp-form">
+      <label>FTP link<input id="ftp-url" type="text" maxlength="500" autocomplete="off" placeholder="ftp://127.0.0.1:2121/"></label>
+      <div class="ftp-actions">
+        <button type="button" id="ftp-server-up">Up</button>
+        <button type="button" id="ftp-server-down">Down</button>
+        <button type="button" id="ftp-connect">Connect</button>
+        <button type="button" id="ftp-refresh">Refresh</button>
+        <button type="button" id="ftp-up">Folder up</button>
+      </div>
+      <div id="ftp-list" class="link-scroll"></div>
+      <label>File<input id="ftp-name" type="text" maxlength="180" autocomplete="off" placeholder="notes.txt"></label>
+      <label>Text<textarea id="ftp-text" spellcheck="false"></textarea></label>
+      <div class="ftp-actions">
+        <button type="button" id="ftp-open">Open</button>
+        <button type="button" id="ftp-save">Save</button>
+      </div>
+      <p class="note link-msg" id="ftp-msg"></p>
+    </form>
+  </section>
+  <section class="card dash">
+    <p class="k">TFTP</p>
+    <p class="note" id="tftp-status">TFTP server starting.</p>
+    <form class="link-form" id="tftp-form">
+      <label>TFTP link<input id="tftp-url" type="text" maxlength="500" autocomplete="off" placeholder="tftp://127.0.0.1:6969/"></label>
+      <div class="ftp-actions">
+        <button type="button" id="tftp-up">Up</button>
+        <button type="button" id="tftp-down">Down</button>
+        <button type="button" id="tftp-connect">Connect</button>
+        <button type="button" id="tftp-refresh">Refresh</button>
+      </div>
+      <div id="tftp-list" class="link-scroll"></div>
+      <label>File<input id="tftp-name" type="text" maxlength="180" autocomplete="off" placeholder="notes.txt"></label>
+      <label>Text<textarea id="tftp-text" spellcheck="false"></textarea></label>
+      <div class="ftp-actions">
+        <button type="button" id="tftp-receive">Receive</button>
+        <button type="button" id="tftp-send">Send</button>
+      </div>
+      <p class="note link-msg" id="tftp-msg"></p>
+    </form>
+  </section>
+  <section class="card dash">
+    <p class="k">SNMP</p>
+    <p class="note" id="snmp-status">SNMP agent starting.</p>
+    <form class="link-form" id="snmp-form">
+      <label>SNMP link<input id="snmp-url" type="text" maxlength="500" autocomplete="off" placeholder="snmp://127.0.0.1:1161/"></label>
+      <label>OID<input id="snmp-oid" type="text" maxlength="200" autocomplete="off" value="1.3.6.1.2.1.1.1.0"></label>
+      <label>Value<input id="snmp-value" type="text" maxlength="200" autocomplete="off" placeholder="set value"></label>
+      <div class="ftp-actions">
+        <button type="button" id="snmp-up">Up</button>
+        <button type="button" id="snmp-down">Down</button>
+        <button type="button" id="snmp-get">Get</button>
+        <button type="button" id="snmp-next">Next</button>
+        <button type="button" id="snmp-walk">Walk</button>
+        <button type="button" id="snmp-set">Set</button>
+      </div>
+      <pre id="snmp-out"></pre>
+      <p class="note link-msg" id="snmp-msg"></p>
+    </form>
   </section>
 </main>
 <script>
@@ -373,7 +810,178 @@ function mean(rows, key) {
   if (!rows.length) return null;
   return rows.reduce((a, r) => a + Number(r[key] || 0), 0) / rows.length;
 }
+let hostStamp = "";
+function lamp(on) {
+  const mark = document.createElement("i");
+  mark.className = "lamp" + (on ? " on" : "");
+  mark.setAttribute("aria-label", on ? "Active" : "Inactive");
+  return mark;
+}
+function tile(label, value, on) {
+  const d = document.createElement("div");
+  d.className = "tile";
+  const s = document.createElement("span");
+  if (on !== undefined) s.append(lamp(!!on));
+  s.append(document.createTextNode(label));
+  const b = document.createElement("b");
+  b.textContent = value;
+  d.append(s, b);
+  return d;
+}
+function linkIsActive(item, s) {
+  if (item.kind !== "live") return false;
+  const url = String(item.url || "");
+  const weather = s.weather || {};
+  if (url.includes("swpc.noaa.gov")) return !!weather.live;
+  const match = url.match(/CATNR=(\\d+)/i);
+  if (!match) return false;
+  const id = Number(match[1]);
+  const row = (s.catalog || []).find((entry) => Number(entry.norad_id) === id);
+  if (!row) return false;
+  const source = String(row.source || "").toUpperCase();
+  return source.includes("LIVE") && !source.includes("FALLBACK");
+}
+function addrObject(item) {
+  const d = document.createElement("div");
+  d.className = "addr";
+  const main = document.createElement("div");
+  main.className = "addr-main";
+  const top = document.createElement("div");
+  top.className = "addr-top";
+  const name = document.createElement("b");
+  name.textContent = item.iface || "—";
+  const state = document.createElement("em");
+  const bits = [item.up ? "Active" : "Inactive"];
+  if (item.gateway) bits.push("gateway " + item.gateway);
+  if (item.source) bits.push(item.source);
+  state.textContent = bits.join(" · ");
+  top.append(name, state);
+  const ip = document.createElement("span");
+  ip.className = "addr-ip";
+  const prefix = item.prefix === null || item.prefix === undefined || item.prefix === "" ? "" : "/" + item.prefix;
+  ip.textContent = (item.address || "—") + prefix;
+  main.append(top, ip);
+  d.append(lamp(!!item.up), main);
+  return d;
+}
+function netGroup(title, rows, emptyText) {
+  const wrap = document.createElement("div");
+  wrap.className = "net-group";
+  const head = document.createElement("p");
+  head.className = "k sub";
+  const up = rows.some((item) => item.up);
+  head.append(lamp(rows.length > 0 && up), document.createTextNode(title));
+  const scroll = document.createElement("div");
+  scroll.className = "net-scroll";
+  if (!rows.length) {
+    scroll.append(Object.assign(document.createElement("p"), {className: "empty", textContent: emptyText}));
+  } else {
+    rows.forEach((item) => scroll.append(addrObject(item)));
+  }
+  wrap.append(head, scroll);
+  return wrap;
+}
+function fillHost(s) {
+  const weather = s.weather || {};
+  const catalogStamp = (s.catalog || []).map((entry) => [entry.norad_id, entry.source]);
+  const stamp = JSON.stringify({
+    environment: s.environment || {},
+    network: s.network || {},
+    links: s.links || [],
+    live: !!weather.live,
+    catalog: catalogStamp
+  });
+  if (stamp === hostStamp) return;
+  const linkBox = $("links");
+  const savedLink = linkBox.scrollTop;
+  const savedNet = [...document.querySelectorAll("#net .net-scroll")].map((el) => el.scrollTop);
+  hostStamp = stamp;
+  const env = s.environment || {};
+  const envBox = $("env");
+  envBox.replaceChildren();
+  if (!env.host) {
+    envBox.append(Object.assign(document.createElement("p"), {className: "empty", textContent: "Waiting for the HUD."}));
+  } else {
+    const facts = [
+      ["User", env.user || "—"],
+      ["UID", String(env.uid) + " / " + String(env.gid)],
+      ["Host", env.host || "—"],
+      ["System", env.platform || "—"],
+      ["Python", env.python || "—"],
+      ["Working directory", env.cwd || "—"],
+      ["Output directory", env.output || "—"],
+      ["HUD", env.hud || "—"],
+      ["Process", String(env.pid || "—"), true],
+      ["Link catalog", env.links_db || "—"]
+    ];
+    facts.forEach((item) => envBox.append(tile(item[0], item[1], item[2])));
+    Object.keys(env.env || {}).forEach((key) => envBox.append(tile(key, env.env[key])));
+  }
+  const net = s.network || {};
+  const netBox = $("net");
+  netBox.replaceChildren();
+  netBox.append(netGroup("All network addresses", net.interfaces || [], "No addresses on this host."));
+  netBox.append(netGroup("Docker addresses", net.docker || [], "No Docker address."));
+  netBox.append(netGroup("Kubernetes addresses", net.kubernetes || [], "No Kubernetes address."));
+  netBox.append(netGroup("Host computer LAN", net.host_lan || [], "No host LAN address."));
+  const wan = net.wan || {};
+  const wanUp = !!wan.address;
+  const wanRow = {
+    iface: "WAN",
+    address: wan.address || wan.error || "Looking up",
+    up: wanUp
+  };
+  const wanBits = [wanUp ? "Active" : "Inactive"];
+  if (wan.source) wanBits.push(wan.source);
+  if (wan.checked) wanBits.push(wan.checked);
+  const wanWrap = netGroup("WAN", [wanRow], "Looking up the WAN address.");
+  const wanState = wanWrap.querySelector("em");
+  if (wanState) wanState.textContent = wanBits.join(" · ");
+  netBox.append(wanWrap);
+  [...netBox.querySelectorAll(".net-scroll")].forEach((el, index) => {
+    if (index < savedNet.length) el.scrollTop = savedNet[index];
+  });
+  linkBox.replaceChildren();
+  const links = s.links || [];
+  if (!links.length) {
+    linkBox.append(Object.assign(document.createElement("p"), {className: "empty", textContent: "No links in the catalog yet."}));
+  } else {
+    links.forEach((item) => {
+      const active = linkIsActive(item, s);
+      const obj = document.createElement("div");
+      obj.className = "link-obj";
+      const main = document.createElement("div");
+      main.className = "link-main";
+      const top = document.createElement("div");
+      top.className = "link-top";
+      const name = document.createElement("b");
+      name.textContent = item.name || "Link";
+      const state = document.createElement("em");
+      state.textContent = active ? "Active" : "Inactive";
+      top.append(name, state);
+      const url = document.createElement("span");
+      url.className = "link-url";
+      url.textContent = item.url || "—";
+      main.append(top, url);
+      if (item.note) {
+        main.append(Object.assign(document.createElement("p"), {className: "note", textContent: item.note}));
+      }
+      if (item.kind === "added") {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "link-remove";
+        btn.dataset.id = String(item.id);
+        btn.textContent = "Remove";
+        main.append(btn);
+      }
+      obj.append(lamp(active), main);
+      linkBox.append(obj);
+    });
+  }
+  linkBox.scrollTop = savedLink;
+}
 function render(s) {
+  fillHost(s);
   const w = s.weather || {};
   const cat = s.catalog || [];
   const sum = s.summary || [];
@@ -499,6 +1107,7 @@ function render(s) {
     $("shot-wait").hidden = true;
   }
   if (s.server_unix) clockSkew = Number(s.server_unix) - Date.now() / 1000;
+  paintClocks();
   liveState.catalog = cat;
   liveState.active = act;
   fillOrbitPanels(cat, act);
@@ -597,7 +1206,7 @@ function regimeOf(alt) {
 }
 function toneOf(t) {
   const c = String((t && (t.object_type || t.name)) || "").toUpperCase();
-  if (c.includes("DEBRIS") || c.includes("DEB")) return "#ff3b30";
+  if (c.includes("DEBRIS") || c.includes("DEB")) return "#c084fc";
   if (c.includes("STATION")) return "#ffffff";
   return "#d7e4ff";
 }
@@ -1234,31 +1843,15 @@ function earthPlate(radiusPx) {
       const lat = deg(Math.asin(Math.max(-1, Math.min(1, p[2] / RE_KM))));
       const lon = deg(Math.atan2(p[1], p[0]));
       const land = landAt(lon, lat);
-      const ice = iceAt(lon, lat, land);
-      const coast = land && !ice && (
-        !landAt(lon + 0.55, lat) || !landAt(lon - 0.55, lat) ||
-        !landAt(lon, lat + 0.55) || !landAt(lon, lat - 0.55)
-      );
-      const nrm = depth / RE_KM;
-      const light = 0.36 + 0.64 * nrm;
-      const spec = land ? 0 : Math.pow(nrm, 22) * 0.4;
+      const border = land !== landAt(lon + 0.5, lat)
+        || land !== landAt(lon - 0.5, lat)
+        || land !== landAt(lon, lat + 0.5)
+        || land !== landAt(lon, lat - 0.5);
       let cr, cg, cb;
-      if (!land) {
-        cr = 8 * light + 186 * spec;
-        cg = 44 * light + 214 * spec;
-        cb = 82 * light + 232 * spec;
-      } else if (ice) {
-        cr = 206 * light;
-        cg = 220 * light;
-        cb = 228 * light;
-      } else if (coast) {
-        cr = 196 * light;
-        cg = 214 * light;
-        cb = 196 * light;
+      if (border) {
+        cr = 255; cg = 59; cb = 48;
       } else {
-        cr = 58 * light;
-        cg = 108 * light;
-        cb = 64 * light;
+        cr = 0; cg = 0; cb = 0;
       }
       data[o] = Math.max(0, Math.min(255, cr));
       data[o + 1] = Math.max(0, Math.min(255, cg));
@@ -1285,14 +1878,15 @@ function flatEarthCanvas() {
     for (let x = 0; x < MASK_W; x++) {
       const lon = -180 + ((x + 0.5) / MASK_W) * 360;
       const land = landAt(lon, lat);
-      const ice = iceAt(lon, lat, land);
+      const border = land !== landAt(lon + 0.5, lat)
+        || land !== landAt(lon - 0.5, lat)
+        || land !== landAt(lon, lat + 0.5)
+        || land !== landAt(lon, lat - 0.5);
       const o = (y * MASK_W + x) * 4;
-      if (!land) {
-        data[o] = 8; data[o + 1] = 28; data[o + 2] = 48;
-      } else if (ice) {
-        data[o] = 186; data[o + 1] = 204; data[o + 2] = 214;
+      if (border) {
+        data[o] = 255; data[o + 1] = 59; data[o + 2] = 48;
       } else {
-        data[o] = 36; data[o + 1] = 78; data[o + 2] = 46;
+        data[o] = 0; data[o + 1] = 0; data[o + 2] = 0;
       }
       data[o + 3] = 255;
     }
@@ -1312,7 +1906,7 @@ function drawEarth(g, proj, scale, cx, cy) {
   g.beginPath();
   g.arc(cx, cy, Math.max(1, radius - 0.6), 0, Math.PI * 2);
   g.clip();
-  g.strokeStyle = "rgba(215,228,255,0.20)";
+  g.strokeStyle = "rgba(255,59,48,0.16)";
   g.lineWidth = 1;
   for (let lon = -180; lon < 180; lon += 30) {
     g.beginPath();
@@ -1343,19 +1937,19 @@ function drawEarth(g, proj, scale, cx, cy) {
   g.restore();
   g.beginPath();
   g.arc(cx, cy, radius + 2.2, 0, Math.PI * 2);
-  g.strokeStyle = "rgba(120,176,214,0.28)";
+  g.strokeStyle = "rgba(255,59,48,0.18)";
   g.lineWidth = 4;
   g.stroke();
   g.beginPath();
   g.arc(cx, cy, radius, 0, Math.PI * 2);
-  g.strokeStyle = "#d7e4ff";
+  g.strokeStyle = "#ff3b30";
   g.lineWidth = 1.15;
   g.stroke();
   const pole = proj(ecef(90, 0, RE_KM));
   if (pole.depth > 0) {
     const x = cx + pole.x * scale;
     const y = cy - pole.y * scale;
-    g.fillStyle = "#d7e4ff";
+    g.fillStyle = "#ff3b30";
     g.font = hudFont(10);
     g.fillText("N", x + 4, y - 2);
   }
@@ -1419,14 +2013,18 @@ function drawOrbit(cat, act) {
   const cy = plotH * 0.46;
   const proj = projector(earthCamera());
   c.dataset.plotW = String(plotW);
-  strokeRing(g, proj, pub, scale, cx, cy, "rgba(255,59,48,0.40)", 1, [4, 4], true);
+  c.dataset.plotH = String(plotH);
+  c.dataset.globeCx = String(cx);
+  c.dataset.globeCy = String(cy);
+  c.dataset.globeR = String(RE_KM * scale);
+  strokeRing(g, proj, pub, scale, cx, cy, "rgba(192,132,252,0.40)", 1, [4, 4], true);
   rings.forEach((ring) => {
     const hero = Number(ring.p.src.norad_id) === 44713;
     const color = hero ? "rgba(255,255,255,0.30)" : fade(toneOf(ring.p.src), 0.22);
     strokeRing(g, proj, ring.pts, scale, cx, cy, color, 1, [], true);
   });
   drawEarth(g, proj, scale, cx, cy);
-  strokeRing(g, proj, pub, scale, cx, cy, "#ff3b30", 1.05, [5, 4], false);
+  strokeRing(g, proj, pub, scale, cx, cy, "#c084fc", 1.05, [5, 4], false);
   rings.forEach((ring) => {
     const id = Number(ring.p.src.norad_id);
     const on = act && Number(act.norad_id) === id;
@@ -1463,8 +2061,8 @@ function drawOrbit(cat, act) {
   const legend = [
     ["#ffffff", false, "sweep orbits"],
     ["#d7e4ff", false, "station / payload"],
-    ["#ff3b30", false, "debris"],
-    ["#ff3b30", true, "public last plane"]
+    ["#c084fc", false, "debris"],
+    ["#c084fc", true, "public last plane"]
   ];
   g.font = hudFont(11);
   legend.forEach((item, i) => {
@@ -1758,6 +2356,16 @@ function bindGlobe(id) {
   c.addEventListener("pointerup", endDrag);
   c.addEventListener("pointercancel", endDrag);
   c.addEventListener("wheel", (ev) => {
+    const rect = c.getBoundingClientRect();
+    const gx = Number(c.dataset.globeCx);
+    const gy = Number(c.dataset.globeCy);
+    const gr = Number(c.dataset.globeR);
+    if (!gr) return;
+    const x = ev.clientX - rect.left;
+    const y = ev.clientY - rect.top;
+    const dx = x - gx;
+    const dy = y - gy;
+    if (dx * dx + dy * dy > gr * gr) return;
     ev.preventDefault();
     viewCam.zoom = Math.max(0.6, Math.min(2.8, viewCam.zoom * (ev.deltaY > 0 ? 0.9 : 1.1)));
   }, { passive: false });
@@ -1768,12 +2376,437 @@ function bindGlobe(id) {
   });
 }
 bindGlobe("orbit");
+$("link-form").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const msg = $("link-msg");
+  msg.textContent = "";
+  const body = {
+    name: $("link-name").value,
+    url: $("link-url").value,
+    note: $("link-note").value
+  };
+  try {
+    const res = await fetch("/api/links", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      msg.textContent = data.error || "Could not add that link.";
+      return;
+    }
+    if (data.existed) msg.textContent = "That URL is already in the catalog.";
+    else {
+      $("link-name").value = "";
+      $("link-url").value = "";
+      $("link-note").value = "";
+      msg.textContent = "Saved in the link catalog.";
+    }
+    tick();
+  } catch (err) {
+    msg.textContent = "Could not reach the HUD.";
+  }
+});
+let ftpDir = "";
+function ftpMsg(text) {
+  $("ftp-msg").textContent = text || "";
+}
+function ftpQuery() {
+  return "dir=" + encodeURIComponent(ftpDir) + "&name=" + encodeURIComponent($("ftp-name").value || "");
+}
+function paintFtp(data) {
+  const box = $("ftp-list");
+  const status = $("ftp-status");
+  if (!data) {
+    box.replaceChildren();
+    return;
+  }
+  ftpDir = data.dir || "";
+  const where = data.target || data.url || "FTP offline";
+  const root = data.running ? "listening" : "offline";
+  status.textContent = root + " · " + where + (ftpDir ? " · " + ftpDir : "");
+  if (data.url && !$("ftp-url").value) $("ftp-url").value = data.url;
+  box.replaceChildren();
+  const entries = data.entries || [];
+  if (!entries.length) {
+    box.append(Object.assign(document.createElement("p"), {className: "empty", textContent: "No files yet. Type a name and Save."}));
+    return;
+  }
+  entries.forEach((item) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "link-remove ftp-link";
+    btn.dataset.name = item.name;
+    btn.dataset.dir = item.dir ? "1" : "";
+    btn.textContent = (item.dir ? "Folder · " : "File · ") + item.name;
+    box.append(btn);
+  });
+}
+async function ftpList() {
+  const res = await fetch("/api/ftp?dir=" + encodeURIComponent(ftpDir), {cache: "no-store"});
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Could not list that folder.");
+  paintFtp(data);
+}
+$("ftp-connect").addEventListener("click", async () => {
+  ftpMsg("");
+  try {
+    const res = await fetch("/api/ftp/connect", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({url: $("ftp-url").value})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not use that FTP link.");
+    ftpDir = "";
+    $("ftp-url").value = data.target || data.url || $("ftp-url").value;
+    await ftpList();
+    ftpMsg("Connected.");
+  } catch (err) {
+    ftpMsg(err.message || "Could not connect.");
+  }
+});
+$("ftp-refresh").addEventListener("click", async () => {
+  ftpMsg("");
+  try { await ftpList(); }
+  catch (err) { ftpMsg(err.message || "Could not refresh."); }
+});
+$("ftp-up").addEventListener("click", async () => {
+  ftpMsg("");
+  const parts = ftpDir.split("/").filter(Boolean);
+  parts.pop();
+  ftpDir = parts.join("/");
+  try { await ftpList(); }
+  catch (err) { ftpMsg(err.message || "Could not open that folder."); }
+});
+$("ftp-list").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button[data-name]");
+  if (!btn) return;
+  if (btn.dataset.dir) {
+    ftpDir = (ftpDir ? ftpDir + "/" : "") + btn.dataset.name;
+    ftpMsg("");
+    try { await ftpList(); }
+    catch (err) { ftpMsg(err.message || "Could not open that folder."); }
+    return;
+  }
+  $("ftp-name").value = btn.dataset.name;
+  ftpMsg(btn.dataset.name);
+});
+$("ftp-open").addEventListener("click", async () => {
+  ftpMsg("");
+  try {
+    const res = await fetch("/api/ftp/open?" + ftpQuery(), {cache: "no-store"});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not open that file.");
+    $("ftp-name").value = data.name || $("ftp-name").value;
+    $("ftp-text").value = data.text || "";
+    ftpMsg("Opened " + (data.name || "file") + ".");
+  } catch (err) {
+    ftpMsg(err.message || "Could not open that file.");
+  }
+});
+$("ftp-save").addEventListener("click", async () => {
+  ftpMsg("");
+  try {
+    const res = await fetch("/api/ftp/save", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({dir: ftpDir, name: $("ftp-name").value, text: $("ftp-text").value})
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not save that file.");
+    await ftpList();
+    ftpMsg("Saved " + (data.name || "file") + ".");
+  } catch (err) {
+    ftpMsg(err.message || "Could not save that file.");
+  }
+});
+$("ftp-form").addEventListener("submit", (ev) => ev.preventDefault());
+ftpList().catch((err) => ftpMsg(err.message || "FTP server is not ready."));
+async function postJson(url, body) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify(body || {})
+  });
+  let data = {};
+  try { data = await res.json(); } catch (err) { data = {}; }
+  if (!res.ok) throw new Error(data.error || "Request failed.");
+  return data;
+}
+$("ftp-server-up").addEventListener("click", async () => {
+  ftpMsg("");
+  try {
+    const data = await postJson("/api/ftp/start", {});
+    if (data.url) $("ftp-url").value = data.url;
+    await ftpList();
+    ftpMsg("FTP server is up.");
+  } catch (err) { ftpMsg(err.message || "Could not start FTP."); }
+});
+$("ftp-server-down").addEventListener("click", async () => {
+  ftpMsg("");
+  try {
+    const data = await postJson("/api/ftp/stop", {});
+    paintFtp(data);
+    ftpMsg("FTP server is down.");
+  } catch (err) { ftpMsg(err.message || "Could not stop FTP."); }
+});
+function paintPing(data) {
+  if (!data) return;
+  const rtt = data.rtt_ms == null ? "" : " · " + data.rtt_ms + " ms";
+  $("ping-status").textContent = (data.running ? "up" : "down")
+    + " · " + (data.host || "")
+    + " · " + data.interval_ms + " ms"
+    + " · sent " + (data.sent || 0)
+    + " · received " + (data.received || 0)
+    + rtt
+    + " · loss " + (data.loss_pct == null ? "0" : data.loss_pct) + "%"
+    + (data.error ? " · " + data.error : "");
+}
+$("ping-up").addEventListener("click", async () => {
+  $("ping-msg").textContent = "";
+  try {
+    paintPing(await postJson("/api/ping", {
+      host: $("ping-host").value,
+      interval_ms: Number($("ping-ms").value),
+      up: true
+    }));
+    $("ping-msg").textContent = "Pinger is up.";
+  } catch (err) { $("ping-msg").textContent = err.message || "Could not start the pinger."; }
+});
+$("ping-down").addEventListener("click", async () => {
+  $("ping-msg").textContent = "";
+  try {
+    paintPing(await postJson("/api/ping", {up: false}));
+    $("ping-msg").textContent = "Pinger is down.";
+  } catch (err) { $("ping-msg").textContent = err.message || "Could not stop the pinger."; }
+});
+$("ping-form").addEventListener("submit", (ev) => ev.preventDefault());
+async function pingStatus() {
+  try {
+    const res = await fetch("/api/ping", {cache: "no-store"});
+    if (res.ok) paintPing(await res.json());
+  } catch (err) { /* leave the last line */ }
+}
+pingStatus();
+setInterval(pingStatus, 1000);
+function paintTftp(data) {
+  const box = $("tftp-list");
+  const status = $("tftp-status");
+  if (!data) { box.replaceChildren(); return; }
+  const where = data.target || data.url || "TFTP offline";
+  status.textContent = (data.running ? "up" : "down") + " · " + where + (data.note ? " · " + data.note : "");
+  if (data.url && !$("tftp-url").value) $("tftp-url").value = data.url;
+  box.replaceChildren();
+  const entries = data.entries || [];
+  if (!entries.length) {
+    box.append(Object.assign(document.createElement("p"), {className: "empty", textContent: data.note || "No files yet. Type a name and Send."}));
+    return;
+  }
+  entries.forEach((item) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "link-remove ftp-link";
+    btn.dataset.name = item.name;
+    btn.textContent = item.name;
+    box.append(btn);
+  });
+}
+async function tftpList() {
+  const res = await fetch("/api/tftp", {cache: "no-store"});
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Could not list TFTP files.");
+  paintTftp(data);
+}
+function tftpMsg(text) { $("tftp-msg").textContent = text || ""; }
+$("tftp-up").addEventListener("click", async () => {
+  tftpMsg("");
+  try {
+    const data = await postJson("/api/tftp/start", {});
+    if (data.url) $("tftp-url").value = data.url;
+    await tftpList();
+    tftpMsg("TFTP server is up.");
+  } catch (err) { tftpMsg(err.message || "Could not start TFTP."); }
+});
+$("tftp-down").addEventListener("click", async () => {
+  tftpMsg("");
+  try { paintTftp(await postJson("/api/tftp/stop", {})); tftpMsg("TFTP server is down."); }
+  catch (err) { tftpMsg(err.message || "Could not stop TFTP."); }
+});
+$("tftp-connect").addEventListener("click", async () => {
+  tftpMsg("");
+  try {
+    const data = await postJson("/api/tftp/connect", {url: $("tftp-url").value});
+    $("tftp-url").value = data.target || data.url || $("tftp-url").value;
+    await tftpList();
+    tftpMsg("Connected.");
+  } catch (err) { tftpMsg(err.message || "Could not connect."); }
+});
+$("tftp-refresh").addEventListener("click", async () => {
+  tftpMsg("");
+  try { await tftpList(); } catch (err) { tftpMsg(err.message || "Could not refresh."); }
+});
+$("tftp-list").addEventListener("click", (ev) => {
+  const btn = ev.target.closest("button[data-name]");
+  if (!btn) return;
+  $("tftp-name").value = btn.dataset.name;
+  tftpMsg(btn.dataset.name);
+});
+$("tftp-receive").addEventListener("click", async () => {
+  tftpMsg("");
+  try {
+    const res = await fetch("/api/tftp/open?name=" + encodeURIComponent($("tftp-name").value || ""), {cache: "no-store"});
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Could not receive that file.");
+    $("tftp-name").value = data.name || $("tftp-name").value;
+    $("tftp-text").value = data.text || "";
+    tftpMsg("Received " + (data.name || "file") + ".");
+  } catch (err) { tftpMsg(err.message || "Could not receive that file."); }
+});
+$("tftp-send").addEventListener("click", async () => {
+  tftpMsg("");
+  try {
+    const data = await postJson("/api/tftp/save", {name: $("tftp-name").value, text: $("tftp-text").value});
+    await tftpList();
+    tftpMsg("Sent " + (data.name || "file") + ".");
+  } catch (err) { tftpMsg(err.message || "Could not send that file."); }
+});
+$("tftp-form").addEventListener("submit", (ev) => ev.preventDefault());
+tftpList().catch((err) => tftpMsg(err.message || "TFTP server is not ready."));
+function paintSnmp(data) {
+  if (!data) return;
+  const where = data.target || data.url || "SNMP offline";
+  $("snmp-status").textContent = (data.running ? "up" : "down") + " · " + where;
+  if (data.url && !$("snmp-url").value) $("snmp-url").value = data.url;
+  const rows = data.rows || [];
+  if (!rows.length) return;
+  $("snmp-out").textContent = rows.map((row) => row.oid + "  " + row.type + "  " + row.value).join("\\n");
+}
+function snmpMsg(text) { $("snmp-msg").textContent = text || ""; }
+async function snmpAct(path, extra) {
+  snmpMsg("");
+  try {
+    const data = await postJson(path, Object.assign({
+      url: $("snmp-url").value,
+      oid: $("snmp-oid").value,
+      value: $("snmp-value").value
+    }, extra || {}));
+    if (data.target) $("snmp-url").value = data.target;
+    paintSnmp(data);
+  } catch (err) { snmpMsg(err.message || "SNMP request failed."); }
+}
+$("snmp-up").addEventListener("click", () => snmpAct("/api/snmp/start", {}));
+$("snmp-down").addEventListener("click", () => snmpAct("/api/snmp/stop", {}));
+$("snmp-get").addEventListener("click", () => snmpAct("/api/snmp/get", {}));
+$("snmp-next").addEventListener("click", () => snmpAct("/api/snmp/next", {}));
+$("snmp-walk").addEventListener("click", () => snmpAct("/api/snmp/walk", {}));
+$("snmp-set").addEventListener("click", () => snmpAct("/api/snmp/set", {}));
+$("snmp-form").addEventListener("submit", (ev) => ev.preventDefault());
+fetch("/api/snmp", {cache: "no-store"}).then((res) => res.json()).then(paintSnmp).catch(() => {});
+$("listeners-up").addEventListener("click", async () => {
+  $("listeners-msg").textContent = "";
+  try {
+    const data = await postJson("/api/listeners/up", {});
+    if (data.ftp && data.ftp.url) $("ftp-url").value = data.ftp.url;
+    if (data.tftp && data.tftp.url) $("tftp-url").value = data.tftp.url;
+    if (data.snmp && data.snmp.url) $("snmp-url").value = data.snmp.url;
+    await ftpList();
+    await tftpList();
+    paintSnmp(data.snmp || {});
+    $("listeners-msg").textContent = "FTP, TFTP, and SNMP are up.";
+  } catch (err) { $("listeners-msg").textContent = err.message || "Could not start the listeners."; }
+});
+$("listeners-down").addEventListener("click", async () => {
+  $("listeners-msg").textContent = "";
+  try {
+    const data = await postJson("/api/listeners/down", {});
+    paintFtp(data.ftp || {});
+    paintTftp(data.tftp || {});
+    paintSnmp(data.snmp || {});
+    paintPing(data.icmp || {});
+    $("listeners-msg").textContent = "Listeners are down.";
+  } catch (err) { $("listeners-msg").textContent = err.message || "Could not stop the listeners."; }
+});
+$("links").addEventListener("click", async (ev) => {
+  const btn = ev.target.closest("button[data-id]");
+  if (!btn) return;
+  const msg = $("link-msg");
+  try {
+    const res = await fetch("/api/links/" + btn.dataset.id, {method: "DELETE"});
+    const data = await res.json();
+    msg.textContent = res.ok ? "Removed from the catalog." : (data.error || "Could not remove that link.");
+    if (res.ok) tick();
+  } catch (err) {
+    msg.textContent = "Could not reach the HUD.";
+  }
+});
+const CLOCKS = [
+  {id: "local", label: "User local", zone: ""},
+  {id: "zulu", label: "Zulu", zone: "UTC", suffix: "Z"},
+  {id: "eastern", label: "Eastern", zone: "America/New_York"},
+  {id: "gmt", label: "GMT", zone: "UTC"},
+  {id: "jerusalem", label: "Jerusalem", zone: "Asia/Jerusalem"},
+  {id: "tehran", label: "Tehran", zone: "Asia/Tehran"},
+  {id: "tokyo", label: "Tokyo", zone: "Asia/Tokyo"}
+];
+function militaryParts(date, zone) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: zone,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZoneName: "short"
+  }).formatToParts(date);
+  const get = (type) => {
+    const found = parts.find((part) => part.type === type);
+    return found ? found.value : "";
+  };
+  let hour = get("hour");
+  if (hour === "24") hour = "00";
+  return {
+    time: hour + ":" + get("minute") + ":" + get("second"),
+    date: get("day") + " " + get("month") + " " + get("year"),
+    name: get("timeZoneName")
+  };
+}
+function paintClocks() {
+  const box = $("clocks");
+  if (!box) return;
+  const now = new Date(serverNow() * 1000);
+  if (!box.childElementCount) {
+    CLOCKS.forEach((spec) => {
+      const tile = document.createElement("div");
+      tile.className = "clock-tile";
+      tile.dataset.clock = spec.id;
+      const label = document.createElement("span");
+      label.textContent = spec.label;
+      tile.append(label, document.createElement("b"), document.createElement("em"));
+      box.append(tile);
+    });
+  }
+  CLOCKS.forEach((spec) => {
+    const zone = spec.zone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const parts = militaryParts(now, zone);
+    const tile = box.querySelector('[data-clock="' + spec.id + '"]');
+    tile.querySelector("b").textContent = parts.time + (spec.suffix || "");
+    const where = spec.id === "local" ? zone : parts.name;
+    tile.querySelector("em").textContent = parts.date + " · " + where;
+  });
+}
 tick();
 setInterval(tick, 700);
+paintClocks();
+setInterval(paintClocks, 250);
 </script>
 </body>
 </html>
 """
+PAGE = _PAGE.replace("__FLAG_BG__", _flag_data_url())
 
 
 class _State:
@@ -1950,7 +2983,7 @@ def _ensure_web_preview():
         import matplotlib.image as mpimg
 
         image = mpimg.imread(full)
-        step = max(1, int(math.ceil(max(image.shape[0], image.shape[1]) / 1400)))
+        step = max(1, int(math.ceil(max(image.shape[0], image.shape[1]) / 700)))
         small = image[::step, ::step]
         # format is explicit: a .part suffix is not a PNG extension.
         mpimg.imsave(tmp, small, format="png")
@@ -1964,6 +2997,596 @@ def _ensure_web_preview():
             os.remove(tmp)
         except OSError:
             pass
+
+
+def _links_db_path():
+    override = os.environ.get("SINTRA_LINKS_DB")
+    if override:
+        return override
+    return os.path.join(_output_dir(), "sintra_links.sqlite")
+
+
+_db_lock = threading.Lock()
+
+
+def _db():
+    conn = sqlite3.connect(_links_db_path(), timeout=5)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_links():
+    """Create the link catalog and keep the live feeds in it."""
+    path = _links_db_path()
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with _db_lock:
+        conn = _db()
+        try:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS links (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    url TEXT NOT NULL UNIQUE,
+                    kind TEXT NOT NULL,
+                    note TEXT NOT NULL DEFAULT '',
+                    created_utc TEXT NOT NULL
+                )
+                """
+            )
+            for name, url, note in _LIVE_LINKS:
+                conn.execute(
+                    """
+                    INSERT OR IGNORE INTO links (name, url, kind, note, created_utc)
+                    VALUES (?, ?, 'live', ?, ?)
+                    """,
+                    (name, url, note, _now()),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def list_links():
+    init_links()
+    with _db_lock:
+        conn = _db()
+        try:
+            rows = conn.execute(
+                """
+                SELECT id, name, url, kind, note, created_utc
+                FROM links
+                ORDER BY CASE kind WHEN 'live' THEN 0 ELSE 1 END, id
+                """
+            ).fetchall()
+        finally:
+            conn.close()
+    return [dict(row) for row in rows]
+
+
+def _clean_link(payload):
+    if not isinstance(payload, dict):
+        raise ValueError("Link must be an object.")
+    name = str(payload.get("name") or "").strip()
+    url = str(payload.get("url") or "").strip()
+    note = str(payload.get("note") or "").strip()
+    if not name or len(name) > 80:
+        raise ValueError("Name must be 1 to 80 characters.")
+    if len(note) > 240:
+        raise ValueError("Note must be 240 characters or less.")
+    if (
+        len(url) > 500
+        or not url.startswith(("https://", "http://"))
+        or any(ch in url for ch in (" ", "\n", "\r"))
+    ):
+        raise ValueError("URL must start with http:// or https://.")
+    return name, url, note
+
+
+def add_link(payload):
+    name, url, note = _clean_link(payload)
+    init_links()
+    with _db_lock:
+        conn = _db()
+        try:
+            try:
+                cur = conn.execute(
+                    """
+                    INSERT INTO links (name, url, kind, note, created_utc)
+                    VALUES (?, ?, 'added', ?, ?)
+                    """,
+                    (name, url, note, _now()),
+                )
+                conn.commit()
+                row = conn.execute(
+                    "SELECT id, name, url, kind, note, created_utc FROM links WHERE id = ?",
+                    (cur.lastrowid,),
+                ).fetchone()
+                return dict(row), False
+            except sqlite3.IntegrityError:
+                row = conn.execute(
+                    "SELECT id, name, url, kind, note, created_utc FROM links WHERE url = ?",
+                    (url,),
+                ).fetchone()
+                return dict(row), True
+        finally:
+            conn.close()
+
+
+def delete_link(link_id):
+    init_links()
+    with _db_lock:
+        conn = _db()
+        try:
+            row = conn.execute(
+                "SELECT id, kind FROM links WHERE id = ?", (int(link_id),)
+            ).fetchone()
+            if row is None:
+                return "missing"
+            if row["kind"] != "added":
+                return "live"
+            conn.execute("DELETE FROM links WHERE id = ?", (int(link_id),))
+            conn.commit()
+            return "deleted"
+        finally:
+            conn.close()
+
+
+def _env_value(name):
+    value = os.environ.get(name)
+    if not value:
+        return None
+    upper = name.upper()
+    if any(word in upper for word in ("KEY", "TOKEN", "SECRET", "PASS", "PASSWORD")):
+        return None
+    return value
+
+
+def environment_info():
+    shown = {}
+    for name in (
+        "SINTRA_HUD",
+        "SINTRA_HUD_HOST",
+        "SINTRA_HUD_PORT",
+        "SINTRA_OUTPUT",
+        "SINTRA_LINKS_DB",
+        "MPLBACKEND",
+        "HOME",
+    ):
+        value = _env_value(name)
+        if value:
+            shown[name] = value
+    return {
+        "user": getpass.getuser(),
+        "uid": os.getuid(),
+        "gid": os.getgid(),
+        "host": socket.gethostname(),
+        "platform": platform.platform(),
+        "python": platform.python_version(),
+        "cwd": os.getcwd(),
+        "output": _output_dir(),
+        "hud": f"{HOST}:{PORT}",
+        "pid": os.getpid(),
+        "links_db": _links_db_path(),
+        "env": shown,
+    }
+
+
+def _ipv4_ok(text):
+    parts = text.split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        nums = [int(part) for part in parts]
+    except ValueError:
+        return False
+    return all(0 <= num <= 255 for num in nums)
+
+
+def _public_ipv4(text):
+    for match in _IPV4.findall(text or ""):
+        if not _ipv4_ok(match):
+            continue
+        parts = [int(part) for part in match.split(".")]
+        if parts[0] in (0, 10, 127):
+            continue
+        if parts[0] == 192 and parts[1] == 168:
+            continue
+        if parts[0] == 172 and 16 <= parts[1] <= 31:
+            continue
+        if parts[0] == 169 and parts[1] == 254:
+            continue
+        return match
+    return None
+
+
+def _virtual_iface(name):
+    text = name.lower()
+    return text.startswith(
+        ("docker", "veth", "br-", "virbr", "vmnet", "kube", "cali", "dummy", "ifb", "flannel", "cni", "tun", "tap")
+    )
+
+
+def _iface_kind(name):
+    text = name.lower()
+    if text == "lo":
+        return "loopback"
+    if text.startswith(("docker", "br-")):
+        return "docker"
+    if text.startswith(
+        ("cni", "flannel", "cali", "kube", "cilium", "weave", "tunl", "vxlan", "lxc")
+    ):
+        return "kubernetes"
+    if _virtual_iface(name):
+        return "other"
+    return "host"
+
+
+def _iface_active(name, flags):
+    oper = ""
+    try:
+        with open(f"/sys/class/net/{name}/operstate", encoding="utf-8") as handle:
+            oper = handle.read().strip().lower()
+    except OSError:
+        oper = ""
+    if oper == "up":
+        return True
+    if oper in ("down", "lowerlayerdown", "notpresent"):
+        return False
+    return bool(flags & 0x1) and bool(flags & 0x40)
+
+
+def _prefix_len(raw):
+    return sum(bin(byte).count("1") for byte in raw)
+
+
+def interface_addresses():
+    """Every IPv4 address on the host, tagged docker, kubernetes, host, or other."""
+    found = []
+    try:
+        names = sorted(os.listdir("/sys/class/net"))
+    except OSError:
+        names = []
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        for name in names:
+            packed = struct.pack("256s", name.encode("utf-8")[:15])
+            try:
+                addr_res = fcntl.ioctl(sock.fileno(), 0x8915, packed)
+                mask_res = fcntl.ioctl(sock.fileno(), 0x891B, packed)
+                flag_res = fcntl.ioctl(sock.fileno(), 0x8913, packed)
+            except OSError:
+                continue
+            ip = socket.inet_ntoa(addr_res[20:24])
+            if not ip:
+                continue
+            flags = struct.unpack_from("<H", flag_res, 16)[0]
+            found.append(
+                {
+                    "iface": name,
+                    "address": ip,
+                    "prefix": _prefix_len(mask_res[20:24]),
+                    "up": _iface_active(name, flags),
+                    "kind": _iface_kind(name),
+                }
+            )
+    finally:
+        sock.close()
+    return found
+
+
+def default_gateway():
+    try:
+        with open("/proc/net/route", encoding="utf-8") as handle:
+            lines = handle.read().splitlines()[1:]
+    except OSError:
+        return None
+    best = None
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 7 or parts[1] != "00000000":
+            continue
+        try:
+            flags = int(parts[3], 16)
+            metric = int(parts[6])
+            packed = struct.pack("<I", int(parts[2], 16))
+        except ValueError:
+            continue
+        if not flags & 0x2:
+            continue
+        ip = socket.inet_ntoa(packed)
+        if best is None or metric < best["metric"]:
+            best = {"iface": parts[0], "address": ip, "metric": metric}
+    if not best:
+        return None
+    return {"iface": best["iface"], "address": best["address"]}
+
+
+def _wan_tool_path():
+    return os.environ.get("WAN_IP_TOOL", "/home/user/git/utils/wan-ip-checker.sh")
+
+
+def _wan_log_paths():
+    paths = []
+    home = os.environ.get("HOME")
+    if home:
+        paths.append(os.path.join(home, ".local", "share", "wan-ip", "wan-ip.csv"))
+        paths.append(os.path.join(home, "scripts", "logs", "wan.ip.csv"))
+    paths.extend(
+        (
+            "/home/user/.local/share/wan-ip/wan-ip.csv",
+            "/home/user/scripts/logs/wan.ip.csv",
+        )
+    )
+    unique = []
+    for path in paths:
+        if path not in unique:
+            unique.append(path)
+    return unique
+
+
+def _net_from_row(row):
+    if len(row) < 3 or row[0].strip().lower() == "date":
+        return None
+    wan = _public_ipv4(row[2])
+    lan = row[3].strip() if len(row) > 3 else ""
+    iface = row[4].strip() if len(row) > 4 else ""
+    if not _ipv4_ok(lan):
+        lan = ""
+    if not wan and not lan:
+        return None
+    return {
+        "address": wan,
+        "source": "wan-ip-checker",
+        "checked": (row[0].strip() + " " + row[1].strip()).strip(),
+        "error": "" if wan else "No WAN address in the wan-ip log",
+        "lan_address": lan,
+        "lan_iface": iface,
+        "lan_prefix": None,
+        "lan_gateway": "",
+    }
+
+
+def _wan_relay_paths():
+    paths = []
+    for key in ("WAN_IP_FILE", "SINTRA_WAN_FILE"):
+        override = os.environ.get(key)
+        if override:
+            paths.append(override)
+    home = os.environ.get("HOME")
+    if home:
+        paths.append(os.path.join(home, ".local", "share", "wan-ip", "wan-ip.json"))
+    paths.extend(
+        (
+            "/var/lib/wan-ip/wan-ip.json",
+            "/output/wan-ip.json",
+            "/home/user/sinatra-sandbox/wan-ip/wan-ip.json",
+            "/home/user/sinatra-sandbox/output/wan-ip.json",
+            "/home/user/.local/share/wan-ip/wan-ip.json",
+        )
+    )
+    unique = []
+    for path in paths:
+        if path and path not in unique:
+            unique.append(path)
+    return unique
+
+
+def _read_wan_relay():
+    for path in _wan_relay_paths():
+        try:
+            with open(path, encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(payload, dict) and (payload.get("wan") or payload.get("lan")):
+            return payload
+    return None
+
+
+def _wan_from_log():
+    for path in _wan_log_paths():
+        try:
+            with open(path, newline="", encoding="utf-8") as handle:
+                rows = list(csv.reader(handle))
+        except OSError:
+            continue
+        for row in reversed(rows):
+            parsed = _net_from_row(row)
+            if parsed:
+                return parsed
+    return None
+
+
+_net_lock = threading.Lock()
+_net_cache = {
+    "address": None,
+    "source": "",
+    "checked": "",
+    "error": "",
+    "lan_address": "",
+    "lan_iface": "",
+    "lan_prefix": None,
+    "lan_gateway": "",
+}
+_wan_started = False
+
+
+def _apply_tool_payload(payload):
+    wan = _public_ipv4(str(payload.get("wan") or ""))
+    lan = str(payload.get("lan") or "")
+    prefix = payload.get("prefix")
+    try:
+        prefix = int(prefix)
+    except (TypeError, ValueError):
+        prefix = None
+    checked = str(payload.get("checked") or "").strip()
+    _net_cache["checked"] = checked or _now()
+    if wan:
+        _net_cache["address"] = wan
+        _net_cache["source"] = "wan-ip-checker"
+        _net_cache["error"] = ""
+    elif not _net_cache["address"]:
+        _net_cache["error"] = str(payload.get("error") or "wan-ip-checker failed")
+    if _ipv4_ok(lan):
+        _net_cache["lan_address"] = lan
+        _net_cache["lan_iface"] = str(payload.get("iface") or "")
+        _net_cache["lan_prefix"] = prefix
+        _net_cache["lan_gateway"] = str(payload.get("gateway") or "")
+
+
+def _lookup_wan():
+    """Read the shared wan-ip relay. Run the checker when this host has it."""
+    payload = None
+    tool = _wan_tool_path()
+    if os.path.isfile(tool) and os.access(tool, os.X_OK):
+        try:
+            proc = subprocess.run(
+                [tool, "--dry-run", "--json", "--ipv4", "--quiet"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            text = (proc.stdout or "").strip()
+            payload = json.loads(text.splitlines()[-1]) if text else None
+        except (OSError, subprocess.SubprocessError, json.JSONDecodeError, IndexError):
+            payload = None
+    if not isinstance(payload, dict):
+        payload = _read_wan_relay()
+    with _net_lock:
+        if isinstance(payload, dict):
+            _apply_tool_payload(payload)
+        elif not _net_cache["address"]:
+            _net_cache["error"] = "wan-ip-checker failed"
+            _net_cache["checked"] = _now()
+
+
+def _wan_loop():
+    while True:
+        _lookup_wan()
+        threading.Event().wait(600)
+
+
+def ensure_wan():
+    global _wan_started
+    with _net_lock:
+        if _wan_started:
+            return
+        _wan_started = True
+        relay = _read_wan_relay()
+        if isinstance(relay, dict):
+            _apply_tool_payload(relay)
+        else:
+            logged = _wan_from_log()
+            if logged and not _net_cache["address"]:
+                _net_cache.update(logged)
+    threading.Thread(target=_wan_loop, name="sintra-wan", daemon=True).start()
+
+
+def network_info():
+    ensure_wan()
+    with _net_lock:
+        wan = {
+            "address": _net_cache.get("address"),
+            "source": _net_cache.get("source") or "",
+            "checked": _net_cache.get("checked") or "",
+            "error": _net_cache.get("error") or "",
+        }
+        lan_tool = {
+            "address": _net_cache.get("lan_address") or "",
+            "iface": _net_cache.get("lan_iface") or "",
+            "prefix": _net_cache.get("lan_prefix"),
+            "gateway": _net_cache.get("lan_gateway") or "",
+        }
+    rows = interface_addresses()
+    gateway = default_gateway()
+    if gateway:
+        for row in rows:
+            if row["iface"] == gateway["iface"]:
+                row["gateway"] = gateway["address"]
+
+    def of_kind(kind):
+        return [row for row in rows if row["kind"] == kind]
+
+    host = of_kind("host")
+    if lan_tool["address"]:
+        match = None
+        for row in rows:
+            if lan_tool["iface"] and row["iface"] == lan_tool["iface"]:
+                match = row
+                break
+            if row["address"] == lan_tool["address"]:
+                match = row
+        host = [
+            {
+                "iface": lan_tool["iface"] or (match or {}).get("iface") or "lan",
+                "address": lan_tool["address"],
+                "prefix": lan_tool["prefix"]
+                if lan_tool["prefix"] is not None
+                else (match or {}).get("prefix"),
+                "up": bool(match["up"]) if match else True,
+                "kind": "host",
+                "gateway": lan_tool["gateway"] or (match or {}).get("gateway") or "",
+                "source": "wan-ip-checker",
+            }
+        ]
+    return {
+        "interfaces": rows,
+        "docker": of_kind("docker"),
+        "kubernetes": of_kind("kubernetes"),
+        "host_lan": host,
+        "gateway": gateway or {},
+        "wan": wan,
+    }
+
+
+def _snmp_merge(result):
+    payload = sintra_snmp.status()
+    if isinstance(result, dict):
+        payload.update(result)
+    return payload
+
+
+def _snmp_action(path, body):
+    if not isinstance(body, dict):
+        body = {}
+    if body.get("url"):
+        sintra_snmp.set_target(body.get("url"))
+    if path.endswith("/start"):
+        return sintra_snmp.start_server()
+    if path.endswith("/stop"):
+        return sintra_snmp.stop_server()
+    if path.endswith("/connect"):
+        return sintra_snmp.set_target(body.get("url") or "")
+    if path.endswith("/get"):
+        return _snmp_merge(sintra_snmp.get_oid(body))
+    if path.endswith("/next"):
+        return _snmp_merge(sintra_snmp.next_oid(body))
+    if path.endswith("/walk"):
+        return _snmp_merge(sintra_snmp.walk_oid(body))
+    if path.endswith("/set"):
+        return _snmp_merge(sintra_snmp.set_oid(body))
+    raise ValueError("Unknown SNMP request.")
+
+
+def _listeners_up():
+    return {
+        "ftp": sintra_ftp.start_server(_output_dir()),
+        "tftp": sintra_tftp.start_server(_output_dir()),
+        "snmp": sintra_snmp.start_server(),
+    }
+
+
+def _listeners_down():
+    return {
+        "ftp": sintra_ftp.stop_server(),
+        "tftp": sintra_tftp.stop_server(),
+        "snmp": sintra_snmp.stop_server(),
+        "icmp": sintra_icmp.stop_pinger(),
+    }
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -1990,7 +3613,9 @@ class _Handler(BaseHTTPRequestHandler):
             pass
 
     def do_GET(self):
-        path = self.path.split("?", 1)[0]
+        parsed = urlparse(self.path)
+        path = parsed.path
+        query = parse_qs(parsed.query)
         if path in ("/", "/index.html"):
             self._send(200, PAGE, "text/html; charset=utf-8")
             return
@@ -2004,7 +3629,36 @@ class _Handler(BaseHTTPRequestHandler):
                 payload["logs"] = list(STATE.logs[-250:])
                 payload["server_time"] = _now()
                 payload["server_unix"] = datetime.now(timezone.utc).timestamp()
+            try:
+                payload["environment"] = environment_info()
+                payload["network"] = network_info()
+                payload["links"] = list_links()
+            except Exception:
+                payload["environment"] = payload.get("environment") or {}
+                payload["network"] = payload.get("network") or {}
+                payload["links"] = payload.get("links") or []
             self._send(200, json.dumps(payload), "application/json")
+            return
+        if path == "/api/links":
+            self._send(200, json.dumps(list_links()), "application/json")
+            return
+        if path == "/api/ftp":
+            self._call_json(lambda: sintra_ftp.listing(query), "FTP")
+            return
+        if path == "/api/ftp/open":
+            self._call_json(lambda: sintra_ftp.open_text(query), "FTP")
+            return
+        if path == "/api/tftp":
+            self._call_json(sintra_tftp.listing, "TFTP")
+            return
+        if path == "/api/tftp/open":
+            self._call_json(lambda: sintra_tftp.open_text(query), "TFTP")
+            return
+        if path == "/api/ping":
+            self._call_json(sintra_icmp.status, "ICMP")
+            return
+        if path == "/api/snmp":
+            self._call_json(sintra_snmp.status, "SNMP")
             return
         if path == "/hud.png":
             refresh_png()
@@ -2016,6 +3670,149 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(404, b"png not ready", "text/plain; charset=utf-8")
             return
         self._send(404, b"not found", "text/plain; charset=utf-8")
+
+    def _call_json(self, call, label):
+        try:
+            payload = call()
+        except ValueError as exc:
+            self._send(400, json.dumps({"error": str(exc)}), "application/json")
+            return
+        except Exception:
+            self._send(500, json.dumps({"error": label + " request failed."}), "application/json")
+            return
+        self._send(200, json.dumps(payload), "application/json")
+
+    def _optional_json(self, limit=4096):
+        length = int(self.headers.get("Content-Length") or 0)
+        if length == 0:
+            return {}
+        return self._json_body(limit)
+
+    def _json_body(self, limit=4096):
+        length = int(self.headers.get("Content-Length") or 0)
+        if length < 0 or length > limit:
+            raise ValueError("Body is too large.")
+        raw = self.rfile.read(length) if length else b""
+        if not raw:
+            raise ValueError("Body is empty.")
+        try:
+            return json.loads(raw.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError) as exc:
+            raise ValueError("Body must be JSON.") from exc
+
+    def do_POST(self):
+        path = self.path.split("?", 1)[0]
+        if path == "/api/ftp/connect":
+            try:
+                body = self._json_body()
+                self._call_json(lambda: sintra_ftp.set_target(body.get("url") if isinstance(body, dict) else ""), "FTP")
+            except ValueError as exc:
+                self._send(400, json.dumps({"error": str(exc)}), "application/json")
+            return
+        if path == "/api/ftp/save":
+            try:
+                body = self._json_body(1_200_000)
+            except ValueError as exc:
+                self._send(400, json.dumps({"error": str(exc)}), "application/json")
+                return
+            self._call_json(lambda: sintra_ftp.save_text(body), "FTP")
+            return
+        if path in ("/api/ftp/start", "/api/ftp/stop"):
+            try:
+                self._optional_json()
+            except ValueError as exc:
+                self._send(400, json.dumps({"error": str(exc)}), "application/json")
+                return
+            if path.endswith("/start"):
+                self._call_json(lambda: sintra_ftp.start_server(_output_dir()), "FTP")
+            else:
+                self._call_json(sintra_ftp.stop_server, "FTP")
+            return
+        if path == "/api/tftp/connect":
+            try:
+                body = self._json_body()
+            except ValueError as exc:
+                self._send(400, json.dumps({"error": str(exc)}), "application/json")
+                return
+            self._call_json(lambda: sintra_tftp.set_target(body.get("url") if isinstance(body, dict) else ""), "TFTP")
+            return
+        if path == "/api/tftp/save":
+            try:
+                body = self._json_body(1_200_000)
+            except ValueError as exc:
+                self._send(400, json.dumps({"error": str(exc)}), "application/json")
+                return
+            self._call_json(lambda: sintra_tftp.save_text(body), "TFTP")
+            return
+        if path == "/api/tftp/start":
+            self._call_json(lambda: sintra_tftp.start_server(_output_dir()), "TFTP")
+            return
+        if path == "/api/tftp/stop":
+            self._call_json(sintra_tftp.stop_server, "TFTP")
+            return
+        if path == "/api/ping":
+            try:
+                body = self._optional_json()
+            except ValueError as exc:
+                self._send(400, json.dumps({"error": str(exc)}), "application/json")
+                return
+            self._call_json(lambda: sintra_icmp.configure(body), "ICMP")
+            return
+        if path in (
+            "/api/snmp/connect",
+            "/api/snmp/get",
+            "/api/snmp/next",
+            "/api/snmp/walk",
+            "/api/snmp/set",
+            "/api/snmp/start",
+            "/api/snmp/stop",
+        ):
+            try:
+                body = self._optional_json(8192)
+            except ValueError as exc:
+                self._send(400, json.dumps({"error": str(exc)}), "application/json")
+                return
+            self._call_json(lambda: _snmp_action(path, body), "SNMP")
+            return
+        if path == "/api/listeners/up":
+            self._call_json(_listeners_up, "Listeners")
+            return
+        if path == "/api/listeners/down":
+            self._call_json(_listeners_down, "Listeners")
+            return
+        if path != "/api/links":
+            self._send(404, b"not found", "text/plain; charset=utf-8")
+            return
+        try:
+            row, existed = add_link(self._json_body())
+        except ValueError as exc:
+            self._send(400, json.dumps({"error": str(exc)}), "application/json")
+            return
+        except Exception:
+            self._send(500, json.dumps({"error": "Could not save the link."}), "application/json")
+            return
+        body = dict(row)
+        body["existed"] = existed
+        self._send(200, json.dumps(body), "application/json")
+
+    def do_DELETE(self):
+        path = self.path.split("?", 1)[0]
+        match = re.fullmatch(r"/api/links/(\d+)", path)
+        if not match:
+            self._send(404, b"not found", "text/plain; charset=utf-8")
+            return
+        try:
+            result = delete_link(match.group(1))
+        except Exception:
+            self._send(500, json.dumps({"error": "Could not remove the link."}), "application/json")
+            return
+        if result == "missing":
+            self._send(404, json.dumps({"error": "That link is not in the catalog."}), "application/json")
+            return
+        if result == "live":
+            self._send(403, json.dumps({"error": "Live feeds stay in the catalog."}), "application/json")
+            return
+        self._send(200, json.dumps({"ok": True}), "application/json")
 
 
 def start():
@@ -2039,6 +3836,24 @@ def start():
         server.daemon_threads = True
         threading.Thread(target=server.serve_forever, name="sintra-hud", daemon=True).start()
         _started = True
+        try:
+            init_links()
+        except Exception as exc:
+            sys.__stdout__.write(f"[hud] link catalog not opened: {exc}\n")
+        ensure_wan()
+        for name, starter in (
+            ("ftp", lambda: sintra_ftp.ensure_server(_output_dir())),
+            ("tftp", lambda: sintra_tftp.ensure_server(_output_dir())),
+            ("snmp", lambda: sintra_snmp.ensure_server(_output_dir())),
+        ):
+            try:
+                info = starter()
+                if info.get("running"):
+                    print(f"[hud] {name} {info.get('url')}")
+                elif info.get("error"):
+                    print(f"[hud] {name} not bound: {info.get('error')}")
+            except Exception as exc:
+                sys.__stdout__.write(f"[hud] {name} not bound: {exc}\n")
         refresh_png()
         print(f"[hud] web view http://127.0.0.1:{PORT}")
         _ensure_web_preview()
