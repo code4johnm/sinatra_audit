@@ -222,12 +222,44 @@ _PAGE = """<!DOCTYPE html>
   }
   .plot.orbit { background: #000; }
   .orbit .stage { height: 560px; }
-  .bands .stage { height: 220px; }
+  .bands .stage { height: 360px; }
   .spark-stage {
     position: relative;
-    height: 88px;
-    margin-top: 16px;
+    height: 240px;
+    margin-top: 12px;
     overflow: hidden;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin: 0 0 12px;
+    padding: 0;
+    list-style: none;
+  }
+  .legend li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #cfcfcf;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+  }
+  .legend i {
+    width: 22px;
+    height: 0;
+    border-top: 2px solid currentColor;
+    flex: 0 0 22px;
+  }
+  .legend i.dashed { border-top-style: dashed; }
+  .legend i.dot {
+    width: 9px;
+    height: 9px;
+    border: 0;
+    border-radius: 50%;
+    background: currentColor;
+    flex-basis: 9px;
   }
   .stage canvas, .spark-stage canvas {
     position: absolute;
@@ -537,7 +569,8 @@ _PAGE = """<!DOCTYPE html>
   @media (max-width: 700px) {
     main { width: calc(100% - 24px); }
     .orbit .stage { height: 420px; }
-    .bands .stage { height: 200px; }
+    .bands .stage { height: 300px; }
+    .spark-stage { height: 200px; }
     #stack .k, #stack canvas { width: min(100%, 720px); }
   }
   @media (max-width: 560px) {
@@ -567,6 +600,12 @@ _PAGE = """<!DOCTYPE html>
 <main>
   <section class="card plot orbit">
     <p class="k" id="orbit-k">Earth view</p>
+    <ul class="legend" aria-label="Earth view legend">
+      <li><i style="color:#ffffff"></i>Sweep orbits</li>
+      <li><i style="color:#d7e4ff"></i>Station / payload</li>
+      <li><i style="color:#c084fc"></i>Debris</li>
+      <li><i class="dashed" style="color:#c084fc"></i>Public last plane</li>
+    </ul>
     <div class="stage"><canvas id="orbit"></canvas></div>
   </section>
   <section class="card">
@@ -583,6 +622,11 @@ _PAGE = """<!DOCTYPE html>
   </section>
   <section class="card dash">
     <p class="k">API links</p>
+    <ul class="legend" aria-label="Link catalog legend">
+      <li><i class="dot" style="color:#30d158"></i>Live feed answering</li>
+      <li><i class="dot" style="color:#ff3b30"></i>Inactive or fallback</li>
+      <li>Added links stay in the catalog and are not requested</li>
+    </ul>
     <div id="links" class="link-scroll"><p class="empty">Waiting for the catalog.</p></div>
     <form class="link-form" id="link-form">
       <label>Name<input id="link-name" name="name" maxlength="80" required autocomplete="off"></label>
@@ -594,14 +638,31 @@ _PAGE = """<!DOCTYPE html>
   </section>
   <section class="card plot bands">
     <p class="k">Altitude bands</p>
+    <ul class="legend" aria-label="Altitude band legend">
+      <li><i style="color:#ffffff"></i>Station</li>
+      <li><i style="color:#d7e4ff"></i>Payload</li>
+      <li><i style="color:#c084fc"></i>Debris</li>
+      <li>Scale 150 to 1500 km. A thicker mark is the object in the sweep.</li>
+    </ul>
     <div class="stage"><canvas id="bands"></canvas></div>
   </section>
   <section class="card">
     <p class="k">Space weather</p>
+    <ul class="legend" aria-label="Space weather legend">
+      <li><i class="dot" style="color:#ffffff"></i>NOAA live</li>
+      <li><i class="dot" style="color:#ff3b30"></i>Built-in fallback</li>
+      <li>Bx By Bz are nT. Wind is km/s. Southward Bz is negative.</li>
+    </ul>
     <div id="wx"><p class="empty">Waiting for the cycle.</p></div>
   </section>
   <section class="card">
     <p class="k">Active track</p>
+    <ul class="legend" aria-label="Active track legend">
+      <li><i style="color:#ffffff"></i>SINTRA km</li>
+      <li><i style="color:#ff3b30"></i>IMM km</li>
+      <li><i style="color:#8a8a8a"></i>Particle filter km</li>
+      <li>Log scale from 0.01 to about 4000 km</li>
+    </ul>
     <div id="active"><p class="empty">No object in the sweep yet.</p></div>
     <div class="spark-stage"><canvas id="spark"></canvas></div>
   </section>
@@ -623,6 +684,12 @@ _PAGE = """<!DOCTYPE html>
   </section>
   <section class="card table">
     <p class="k">Catalog · same sweep as the terminal</p>
+    <ul class="legend" aria-label="Catalog legend">
+      <li><i style="color:#ffffff"></i>Station</li>
+      <li><i style="color:#d7e4ff"></i>Payload</li>
+      <li><i style="color:#ff3b30"></i>Debris class</li>
+      <li>SINTRA, IMM, and PF are kilometer error for that object</li>
+    </ul>
     <div id="table"></div>
   </section>
   <section class="card">
