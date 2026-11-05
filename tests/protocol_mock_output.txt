@@ -1,0 +1,47 @@
+test_ftp_handler (__main__.ProtocolHandlerMock.test_ftp_handler) ... FTP start ftp://127.0.0.1:37749/ running=True root=/tmp/sintra-ftp-mock-gluw0irp
+FTP save {'ok': True, 'name': 'note.txt', 'dir': '', 'bytes': 23}
+FTP list ['note.txt']
+FTP open note.txt bytes=23 text='sinatra audit ftp mock\n'
+  reject ftp path: Use a file name without a path.
+  reject ftp folder: That folder is outside the FTP root.
+  reject ftp scheme: Use an ftp:// link.
+  reject ftp missing: Could not open that file.
+FTP stop running=False
+FTP disabled error='SINTRA_FTP is off' running=False
+ok
+test_snmp_handler (__main__.ProtocolHandlerMock.test_snmp_handler) ... SNMP start snmp://127.0.0.1:45419/ running=True
+SNMP get sysDescr {'oid': '1.3.6.1.2.1.1.1.0', 'type': 'string', 'value': 'sinatra_audit snmp'}
+SNMP next {'oid': '1.3.6.1.2.1.1.2.0', 'type': 'oid', 'value': '1.3.6.1.4.1.55555.1'}
+SNMP walk count=7
+  1.3.6.1.2.1.1.1.0 string sinatra_audit snmp
+  1.3.6.1.2.1.1.2.0 oid 1.3.6.1.4.1.55555.1
+  1.3.6.1.2.1.1.3.0 ticks 115
+  1.3.6.1.2.1.1.4.0 string sinatra_audit
+  1.3.6.1.2.1.1.5.0 string computer
+  1.3.6.1.2.1.1.6.0 string sinatra_audit
+  1.3.6.1.2.1.1.7.0 int 72
+SNMP set sysLocation {'oid': '1.3.6.1.2.1.1.6.0', 'type': 'string', 'value': 'mock bench'}
+SNMP get sysLocation {'oid': '1.3.6.1.2.1.1.6.0', 'type': 'string', 'value': 'mock bench'}
+SNMP set read-only {'oid': '1.3.6.1.2.1.1.1.0', 'type': 'none', 'value': 'no such object'}
+  reject snmp oid: Use a numeric OID.
+  reject snmp scheme: Use an snmp:// link.
+  reject snmp community: The SNMP agent did not answer.
+SNMP stop running=False
+SNMP disabled error='SINTRA_SNMP is off' running=False
+ok
+test_tftp_handler (__main__.ProtocolHandlerMock.test_tftp_handler) ... TFTP start tftp://127.0.0.1:36755/ running=True root=/tmp/sintra-tftp-mock-1kwogkjx
+TFTP save {'ok': True, 'name': 'note.txt', 'bytes': 24}
+TFTP list ['note.txt'] note=''
+TFTP open note.txt bytes=24 text='sinatra audit tftp mock\n'
+  reject tftp path: Use a file name without a path.
+  reject tftp missing: File not found.
+  reject tftp scheme: Use a tftp:// link.
+TFTP remote note='Type a file name. TFTP does not list a remote folder.' entries=[]
+TFTP stop running=False
+TFTP disabled error='SINTRA_TFTP is off' running=False
+ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 4.618s
+
+OK
