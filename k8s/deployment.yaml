@@ -19,6 +19,10 @@ spec:
       labels:
         app: sinatra
     spec:
+      # Host network, same as the k3s console: the HUD listens on the laptop
+      # address so a phone on this LAN can open port 8080.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -59,7 +63,6 @@ spec:
           ports:
             - name: hud
               containerPort: 8080
-              hostPort: 8080
               protocol: TCP
           readinessProbe:
             httpGet:
