@@ -238,11 +238,21 @@ _PAGE = """<!DOCTYPE html>
   }
   .orbit canvas { touch-action: none; cursor: grab; }
   .table { overflow: visible; }
-  #stack { display: flex; flex-direction: column; gap: 28px; align-items: flex-start; }
+  #stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+  }
+  #stack .k,
+  #stack canvas {
+    width: min(720px, 50%);
+    margin-left: auto;
+    margin-right: auto;
+  }
   #stack canvas {
     position: static;
     display: block;
-    width: 50%;
     height: auto;
     background: #070a12;
   }
@@ -525,8 +535,10 @@ _PAGE = """<!DOCTYPE html>
     .clock-banner { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   }
   @media (max-width: 700px) {
+    main { width: calc(100% - 24px); }
     .orbit .stage { height: 420px; }
     .bands .stage { height: 200px; }
+    #stack .k, #stack canvas { width: min(100%, 720px); }
   }
   @media (max-width: 560px) {
     .clock-banner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
