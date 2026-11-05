@@ -1431,7 +1431,7 @@ def run_live_sky_interceptor():
     out_dir = os.environ.get("SINTRA_OUTPUT", os.getcwd())
     out_file = os.path.join(out_dir, "sintra_live_norad_intercept_hud.png")
     try:
-        plt.savefig(out_file, dpi=300, facecolor=fig.get_facecolor())
+        plt.savefig(out_file, dpi=150, facecolor=fig.get_facecolor())
     except PermissionError as exc:
         raise PermissionError(
             f"cannot write {out_file} as uid {os.getuid()}; "
@@ -1446,7 +1446,7 @@ def run_live_sky_interceptor():
         web_name = getattr(web_hud, "WEB_PNG_NAME", web_name)
     web_file = os.path.join(out_dir, web_name)
     try:
-        plt.savefig(web_file, dpi=110, facecolor=fig.get_facecolor())
+        plt.savefig(web_file, dpi=55, facecolor=fig.get_facecolor())
         try:
             os.chmod(web_file, 0o644)
         except OSError:

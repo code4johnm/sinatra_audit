@@ -1162,7 +1162,7 @@ def run_redacted_demo():
     print("=" * 108)
 
     output_png = "sintra_cia_redacted_hud.png"
-    plt.savefig(output_png, dpi=300, facecolor=fig.get_facecolor())
+    plt.savefig(output_png, dpi=150, facecolor=fig.get_facecolor())
     print(f"[*] Redacted high-resolution HUD snapshot saved to: {output_png}")
     plt.ioff()
     plt.show()

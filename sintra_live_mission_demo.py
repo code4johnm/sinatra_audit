@@ -1068,7 +1068,7 @@ def run_live_demonstration():
     print("=" * 108)
 
     output_png = "sintra_mission_hud_final.png"
-    plt.savefig(output_png, dpi=300, facecolor=fig.get_facecolor())
+    plt.savefig(output_png, dpi=150, facecolor=fig.get_facecolor())
     print(f"[*] High-resolution HUD snapshot saved to: {output_png}")
     plt.ioff()
     plt.show()
