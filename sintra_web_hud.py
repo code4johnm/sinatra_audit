@@ -565,28 +565,35 @@ _PAGE = """<!DOCTYPE html>
   }
   @media (max-width: 900px) {
     .clock-banner {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 4px;
-      padding: 4px 8px 5px;
+      padding: 8px 12px 10px;
     }
-    .clock-banner .clock-tile { padding: 3px 5px; }
+    .clock-banner .clock-tile { padding: 4px 6px; }
     .clock-banner .clock-tile span {
-      font-size: 9px;
+      font-size: 11px;
       letter-spacing: 0.04em;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
+      overflow: visible;
+      text-overflow: clip;
     }
     .clock-banner .clock-tile b {
-      margin-top: 1px;
-      font-size: 13px;
+      margin-top: 4px;
+      font-size: 14px;
       letter-spacing: 0.02em;
     }
-    .clock-banner .clock-tile em { display: none; }
+    .clock-banner .clock-tile em {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+    }
   }
   @media (max-width: 700px) {
     main { width: calc(100% - 24px); }
     header { padding: 12px; }
+    h1 { font-size: 16px; letter-spacing: 0.08em; }
+    .pill { font-size: 13px; letter-spacing: 0.04em; }
+    .k { font-size: 13px; letter-spacing: 0.08em; }
     .orbit .stage { height: 420px; }
     .bands .stage { height: 300px; }
     .spark-stage { height: 200px; }
@@ -594,17 +601,30 @@ _PAGE = """<!DOCTYPE html>
     button, input, select, textarea { font-size: 16px; }
     button { min-height: 44px; }
     .link-form button, .link-remove { font-size: 16px; letter-spacing: 0.04em; }
+    .link-form label { font-size: 13px; letter-spacing: 0.06em; }
     pre { height: auto; min-height: 180px; max-height: 50vh; }
-  }
-  @media (max-width: 560px) {
-    .clock-banner {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 3px;
-      padding: 3px 6px 4px;
+    #table table { width: 100%; }
+    #table tr {
+      display: block;
+      margin: 0 0 12px;
+      padding: 8px 10px;
+      border: 1px solid #1c1c1c;
     }
-    .clock-banner .clock-tile { padding: 2px 3px; }
-    .clock-banner .clock-tile span { font-size: 8px; letter-spacing: 0.02em; }
-    .clock-banner .clock-tile b { font-size: 11px; letter-spacing: 0; }
+    #table tr:first-child { display: none; }
+    #table td {
+      display: grid;
+      grid-template-columns: 6.5rem minmax(0, 1fr);
+      gap: 4px 8px;
+      border: 0;
+      padding: 6px 0;
+    }
+    #table td::before {
+      content: attr(data-label);
+      color: var(--dim);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
   }
 </style>
 </head>
@@ -1146,8 +1166,9 @@ function render(s) {
   const done = {};
   sum.forEach((r) => { done[r.norad_id] = r; });
   const table = document.createElement("table");
+  const headers = ["NORAD", "Object", "Alt", "Class", "SINTRA", "IMM", "PF", "sigma", "Mass"];
   const head = document.createElement("tr");
-  ["NORAD", "Object", "Alt", "Class", "SINTRA", "IMM", "PF", "sigma", "Mass"].forEach((h) => {
+  headers.forEach((h) => {
     const th = document.createElement("th");
     th.textContent = h;
     head.append(th);
@@ -1171,6 +1192,7 @@ function render(s) {
     cells.forEach((c, i) => {
       const td = document.createElement("td");
       td.textContent = c;
+      td.setAttribute("data-label", headers[i]);
       if (i !== 1 && i !== 3) td.className = "num";
       if (i === 3) td.className = "klass " + klassOf(c);
       tr.append(td);
