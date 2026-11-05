@@ -568,10 +568,15 @@ _PAGE = """<!DOCTYPE html>
   }
   @media (max-width: 700px) {
     main { width: calc(100% - 24px); }
+    header { padding: 12px; }
     .orbit .stage { height: 420px; }
     .bands .stage { height: 300px; }
     .spark-stage { height: 200px; }
     #stack .k, #stack canvas { width: min(100%, 720px); }
+    button, input, select, textarea { font-size: 16px; }
+    button { min-height: 44px; }
+    .link-form button, .link-remove { font-size: 16px; letter-spacing: 0.04em; }
+    pre { height: auto; min-height: 180px; max-height: 50vh; }
   }
   @media (max-width: 560px) {
     .clock-banner { grid-template-columns: repeat(2, minmax(0, 1fr)); }
