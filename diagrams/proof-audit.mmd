@@ -1,0 +1,20 @@
+graph TD
+  code[Proof script]
+  id1[Cold-fluid forced KdV]
+  id2[Gardner flow of stated H]
+  id3[Chart convexity of E]
+  id4[Gain-tensor spectrum]
+  id5[Ricker moments 0 and 1]
+  id6[Scalar left inverse]
+  sim[Monte Carlo report]
+  audit[Math proof audit]
+
+  code --> id1
+  code --> id2
+  code --> id3
+  code --> id4
+  code --> id5
+  code --> id6
+  code --> sim
+  id1 --> audit
+  sim --> audit

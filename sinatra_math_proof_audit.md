@@ -207,17 +207,7 @@ Substituting σ<sup>*</sup>(λ<sub>debris</sub>) confirms the bijective roundtri
 
 ## 3. Summary of Findings
 
-```mermaid
-graph TD
-  t1[Theorem 1 forced KdV] --> r1[Algebra holds]
-  r1 --> n1[Scale is a rename only]
-  t2[Theorem 2 Gardner flow] --> r2[Algebra holds]
-  t3[Theorem 3 chart convexity] --> n3[Not an EVI on the full measure space]
-  t4[Theorem 4 projectors] --> r4[Spectrum only]
-  t5[Theorem 5 Ricker moments] --> n5[Decibel figure is not the identity]
-  t6[Theorem 6 scalar inverse] --> n6[Not charge or mass]
-  t7[Theorem 7 Monte Carlo] --> n7[Pipeline mismatch, not a custody proof]
-```
+![Summary of findings](diagrams/proof-summary.png)
 
 ---
 
@@ -379,16 +369,8 @@ A median of 0.699 km against 4.502 km on this matched injection is a real gap in
 
 ### 4.10 Revised verdict
 
-```mermaid
-graph TD
-  id1[Cold-fluid KdV residual is zero] --> lim1[Not a kinetic ionosphere theorem]
-  id2[Gardner flow residual is zero] --> lim2[Not an action principle]
-  id3[Critical point of E only] --> lim3[Printed EVI is not checked]
-  id4[Projector spectrum confirmed] --> lim4[Not a Fisher metric]
-  id5[Moments 0 and 1 vanish] --> lim5[Mixed decibel figure is not a gain]
-  id6[Scalar left inverse holds] --> lim6[Not charge, mass, or a potential]
-  id7[Recorded Monte Carlo] --> lim7[Not sub-zero custody on COSMIC-1]
-```
+![Revised verdict](diagrams/proof-verdict.png)
+
 ---
 
 ## 5. References

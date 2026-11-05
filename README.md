@@ -54,117 +54,15 @@ The image is `python:3.12-slim-bookworm` plus numpy, scipy, sympy, matplotlib, r
 
 ## Diagrams
 
-Sources are in [diagrams/](diagrams/README.md). The copies below use `graph` and labels without slashes or parentheses, which is what GitHub Mermaid actually renders. A slash inside a node label is parsed as a shape, so those diagrams were failing.
+Sources are in [diagrams/](diagrams/README.md). GitHub leaves these graphs on Loading, so the pages show the rendered PNG. A slash inside a Mermaid node label is parsed as a shape, which is why the sources avoid slashes.
 
-```mermaid
-graph TD
-  noaa[NOAA space-weather JSON]
-  cele[CelesTrak NORAD catalog]
-  cosmic[Local cosmic data or synthetic Chapman curve]
-  sw[LiveSpaceWeather]
-  fallback[Built-in IMF values]
-  prop[Propagate OMM to a LEO state]
-  kep[Built-in Keplerian elements]
-  tgt[LiveOrbitalTarget]
-  env[Mission environment]
-  inject[Altitude and B-field wake]
-  clutter[Injected clutter on a long grid]
-  engine[Blind multi-scale engine]
-  stack[Moving-frame stack]
-  sigma[Width estimate]
-  jko[Width relaxation]
-  debris[DebrisMetrics]
-  hud[HUD PNG]
-  web[Web HUD]
-  add[Add link on the web HUD]
-  catalog[(Link catalog)]
-  potential[Potential API feed]
-
-  noaa --> sw
-  noaa -.-> fallback
-  fallback --> sw
-  cele --> prop
-  cele -.-> kep
-  kep --> prop
-  sw --> prop
-  prop --> tgt
-  cosmic --> env
-  tgt --> inject
-  env --> inject
-  inject --> clutter
-  clutter --> engine
-  engine --> stack
-  stack --> sigma
-  sigma --> jko
-  jko --> debris
-  debris --> hud
-  debris --> web
-  noaa --> catalog
-  cele --> catalog
-  add --> catalog
-  catalog --> web
-  catalog -.-> potential
-  potential -.-> sw
-  potential -.-> prop
-```
+![One intercept cycle](diagrams/overview.png)
 
 Dotted edges from the link catalog are potential feeds. The cycle still calls NOAA and CelesTrak. An added link is saved and shown, and the interceptor does not request it.
 
-```mermaid
-graph TD
-  docker[Dockerfile]
-  image[Image sinatra-sandbox local]
-  user[User 10001 read-only root]
-  launch[Headless launcher sets Agg and skips show]
-  script[Sky-catalog interceptor]
-  loop[Continuous cycle]
-  png[HUD PNG on the output volume]
-  web[Web HUD port 8080]
-  catalog[(Link catalog on the output volume)]
-  dep[Kubernetes Deployment]
-  svc[Service port 8080]
-  jobfile[Dockerfile.job]
-  jobimg[Image sinatra latest]
-  job[Kubernetes Job one shot]
-  outvol[PNG on the out volume]
+![Container image and Kubernetes manifests](diagrams/deployment.png)
 
-  docker --> image
-  image --> user
-  user --> launch
-  launch --> script
-  script --> loop
-  loop --> png
-  loop --> web
-  web --> catalog
-  dep --> image
-  svc --> dep
-  jobfile --> jobimg
-  jobimg --> job
-  job --> outvol
-```
-
-```mermaid
-graph TD
-  code[Proof script]
-  id1[Cold-fluid forced KdV]
-  id2[Gardner flow of stated H]
-  id3[Chart convexity of E]
-  id4[Gain-tensor spectrum]
-  id5[Ricker moments 0 and 1]
-  id6[Scalar left inverse]
-  sim[Monte Carlo report]
-  audit[Math proof audit]
-
-  code --> id1
-  code --> id2
-  code --> id3
-  code --> id4
-  code --> id5
-  code --> id6
-  code --> sim
-  id1 --> audit
-  sim --> audit
-```
+![Proof script checks](diagrams/proof-audit.png)
 
 The web HUD listens on port 8080. The container alsos. It does not prove sub-zero-SNR custody. See [sinatra_math_proof_audit.md](sinatra_math_proof_audit.md).
 

@@ -2,132 +2,45 @@
 
 These drawings document the live interceptor and the proof-script checks. They do not change runtime behavior.
 
-Labels avoid slashes and parentheses. Mermaid treats a slash inside a node as a shape delimiter, which is why the previous copies failed to render.
+The `.mmd` files are the sources. The PNGs are what the pages show. GitHub leaves a Mermaid fence on Loading for these graphs. A slash inside a node label is parsed as a shape, so the sources avoid slashes.
 
 ## Files
 
-| File | Drawing |
-| --- | --- |
-| [overview.mmd](overview.mmd) | One intercept cycle |
-| [architecture.mmd](architecture.mmd) | Live-script components |
-| [data-flow.mmd](data-flow.mmd) | One object, from catalog JSON to DebrisMetrics |
-| [deployment.mmd](deployment.mmd) | Container image and Kubernetes manifests |
-| [proof-claims.mmd](proof-claims.mmd) | What the proof script checks |
+| Source | Picture | Drawing |
+| --- | --- | --- |
+| [overview.mmd](overview.mmd) | [overview.png](overview.png) | One intercept cycle |
+| [architecture.mmd](architecture.mmd) | [architecture.png](architecture.png) | Live-script components |
+| [data-flow.mmd](data-flow.mmd) | [data-flow.png](data-flow.png) | One object, from catalog JSON to DebrisMetrics |
+| [deployment.mmd](deployment.mmd) | [deployment.png](deployment.png) | Container image and Kubernetes manifests |
+| [proof-claims.mmd](proof-claims.mmd) | [proof-claims.png](proof-claims.png) | What the proof script checks |
+| [proof-audit.mmd](proof-audit.mmd) | [proof-audit.png](proof-audit.png) | README subset of those checks |
+| [proof-summary.mmd](proof-summary.mmd) | [proof-summary.png](proof-summary.png) | Audit section 3 summary |
+| [proof-verdict.mmd](proof-verdict.mmd) | [proof-verdict.png](proof-verdict.png) | Audit section 4.10 verdict |
 
 ## Cycle
 
-```mermaid
-graph TD
-  noaa[NOAA space-weather JSON]
-  cele[CelesTrak NORAD catalog]
-  cosmic[Local cosmic data or synthetic Chapman curve]
-  sw[LiveSpaceWeather]
-  fallback[Built-in IMF values]
-  prop[Propagate OMM to a LEO state]
-  kep[Built-in Keplerian elements]
-  tgt[LiveOrbitalTarget]
-  env[Mission environment]
-  inject[Altitude and B-field wake]
-  clutter[Injected clutter on a long grid]
-  engine[Blind multi-scale engine]
-  stack[Moving-frame stack]
-  sigma[Width estimate]
-  jko[Width relaxation]
-  debris[DebrisMetrics]
-  hud[HUD PNG]
-  web[Web HUD]
-  add[Add link on the web HUD]
-  catalog[(Link catalog)]
-  potential[Potential API feed]
-
-  noaa --> sw
-  noaa -.-> fallback
-  fallback --> sw
-  cele --> prop
-  cele -.-> kep
-  kep --> prop
-  sw --> prop
-  prop --> tgt
-  cosmic --> env
-  tgt --> inject
-  env --> inject
-  inject --> clutter
-  clutter --> engine
-  engine --> stack
-  stack --> sigma
-  sigma --> jko
-  jko --> debris
-  debris --> hud
-  debris --> web
-  noaa --> catalog
-  cele --> catalog
-  add --> catalog
-  catalog --> web
-  catalog -.-> potential
-  potential -.-> sw
-  potential -.-> prop
-```
+![One intercept cycle](overview.png)
 
 Dotted edges from the link catalog are potential feeds. The cycle still calls NOAA and CelesTrak. An added link is saved and shown, and the interceptor does not request it.
 
 ## Components
 
-```mermaid
-graph LR
-  weather[LiveSpaceWeather]
-  target[LiveOrbitalTarget]
-  env[Mission environment]
-  detector[Raw classical detector]
-  imm[IMM proxy]
-  pf[Particle filter]
-  engine[Blind multi-scale engine]
-  metrics[DebrisMetrics]
-  added[Added API link]
-  links[(Link catalog)]
+![Live-script components](architecture.png)
 
-  weather --> target
-  target --> env
-  env --> detector
-  detector --> imm
-  detector --> pf
-  target --> engine
-  engine --> metrics
-  added --> links
-  links -.-> weather
-  links -.-> target
-```
+## Data flow
+
+![One object, from catalog JSON to DebrisMetrics](data-flow.png)
 
 ## Deployment
 
-```mermaid
-graph TD
-  docker[Dockerfile]
-  image[Image sinatra-sandbox local]
-  user[User 10001 read-only root]
-  launch[Headless launcher sets Agg and skips show]
-  script[Sky-catalog interceptor]
-  loop[Continuous cycle]
-  png[HUD PNG on the output volume]
-  web[Web HUD port 8080]
-  catalog[(Link catalog on the output volume)]
-  dep[Kubernetes Deployment]
-  svc[Service port 8080]
-  jobfile[Dockerfile.job]
-  jobimg[Image sinatra latest]
-  job[Kubernetes Job one shot]
-  outvol[PNG on the out volume]
+![Container image and Kubernetes manifests](deployment.png)
 
-  docker --> image
-  image --> user
-  user --> launch
-  launch --> script
-  script --> loop
-  loop --> png
-  loop --> web
-  web --> catalog
-  dep --> image
-  svc --> dep
-  jobfile --> jobimg
-  jobimg --> job
-  job --> outvol
-```
+## Proof script
+
+![What the proof script checks](proof-claims.png)
+
+![README subset of those checks](proof-audit.png)
+
+![Audit section 3 summary](proof-summary.png)
+
+![Audit section 4.10 verdict](proof-verdict.png)
