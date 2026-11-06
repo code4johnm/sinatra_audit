@@ -146,7 +146,7 @@ _PAGE = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sinatra Audit</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23000'/%3E%3Ccircle cx='16' cy='16' r='2.2' fill='%23f4f4f4'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='4.6' fill='none' stroke='%23f4f4f4' stroke-width='1.3'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='4.6' fill='none' stroke='%23f4f4f4' stroke-width='1.3' transform='rotate(60 16 16)'/%3E%3Cellipse cx='16' cy='16' rx='12' ry='4.6' fill='none' stroke='%23f4f4f4' stroke-width='1.3' transform='rotate(120 16 16)'/%3E%3C/svg%3E">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%20shape-rendering%3D%27crispEdges%27%3E%3Cpath%20fill%3D%27%2307070c%27%20d%3D%27M0%200h16v16H0z%27%2F%3E%3Cpath%20fill%3D%27%237aa2ff%27%20d%3D%27M7%201h2v1H7zM6%202h1v1H6zM9%202h1v1H9zM7%203h2v1H7zM6%204h1v1H6zM9%204h1v1H9zM6%205h1v1H6zM9%205h1v1H9zM6%2010h1v1H6zM9%2010h1v1H9zM6%2011h1v1H6zM9%2011h1v1H9zM7%2012h2v1H7zM6%2013h1v1H6zM9%2013h1v1H9zM7%2014h2v1H7z%27%2F%3E%3Cpath%20fill%3D%27%23d7e4ff%27%20d%3D%27M3%203h3v1H3zM10%203h3v1H10zM2%204h1v1H2zM13%204h1v1H13zM1%205h1v1H1zM14%205h1v1H14zM1%206h1v1H1zM14%206h1v1H14zM0%207h3v1H0zM13%207h3v1H13zM0%208h3v1H0zM13%208h3v1H13zM1%209h1v1H1zM14%209h1v1H14zM1%2010h1v1H1zM14%2010h1v1H14zM2%2011h1v1H2zM13%2011h1v1H13zM3%2012h3v1H3zM10%2012h3v1H10z%27%2F%3E%3Cpath%20fill%3D%27%23ffffff%27%20d%3D%27M7%206h2v1H7zM6%207h4v1H6zM6%208h4v1H6zM7%209h2v1H7z%27%2F%3E%3C%2Fsvg%3E">
 <style>
   :root {
     --bg: #050505;
@@ -181,7 +181,7 @@ _PAGE = """<!DOCTYPE html>
     padding: 14px 18px; border-bottom: 1px solid var(--line);
     background: transparent;
   }
-  .mark { width: 32px; height: 32px; flex: 0 0 32px; display: block; }
+  .mark { width: 32px; height: 32px; flex: 0 0 32px; display: block; shape-rendering: crispEdges; }
   h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: 0.22em; }
   h1 span { color: var(--dim); font-weight: 450; letter-spacing: 0.16em; }
   .grow { flex: 1; }
@@ -631,12 +631,7 @@ _PAGE = """<!DOCTYPE html>
 <body>
 <div class="topbar">
 <header>
-  <svg class="mark" viewBox="0 0 32 32" aria-hidden="true">
-    <circle cx="16" cy="16" r="2.2" fill="#f4f4f4"/>
-    <ellipse cx="16" cy="16" rx="12" ry="4.6" fill="none" stroke="#f4f4f4" stroke-width="1.3"/>
-    <ellipse cx="16" cy="16" rx="12" ry="4.6" fill="none" stroke="#f4f4f4" stroke-width="1.3" transform="rotate(60 16 16)"/>
-    <ellipse cx="16" cy="16" rx="12" ry="4.6" fill="none" stroke="#f4f4f4" stroke-width="1.3" transform="rotate(120 16 16)"/>
-  </svg>
+  <svg class='mark' aria-hidden='true' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'><path fill='#07070c' d='M0 0h16v16H0z'/><path fill='#7aa2ff' d='M7 1h2v1H7zM6 2h1v1H6zM9 2h1v1H9zM7 3h2v1H7zM6 4h1v1H6zM9 4h1v1H9zM6 5h1v1H6zM9 5h1v1H9zM6 10h1v1H6zM9 10h1v1H9zM6 11h1v1H6zM9 11h1v1H9zM7 12h2v1H7zM6 13h1v1H6zM9 13h1v1H9zM7 14h2v1H7z'/><path fill='#d7e4ff' d='M3 3h3v1H3zM10 3h3v1H10zM2 4h1v1H2zM13 4h1v1H13zM1 5h1v1H1zM14 5h1v1H14zM1 6h1v1H1zM14 6h1v1H14zM0 7h3v1H0zM13 7h3v1H13zM0 8h3v1H0zM13 8h3v1H13zM1 9h1v1H1zM14 9h1v1H14zM1 10h1v1H1zM14 10h1v1H14zM2 11h1v1H2zM13 11h1v1H13zM3 12h3v1H3zM10 12h3v1H10z'/><path fill='#ffffff' d='M7 6h2v1H7zM6 7h4v1H6zM6 8h4v1H6zM7 9h2v1H7z'/></svg>
   <h1>Sinatra Audit</h1>
   <div class="grow"></div>
   <div class="pill" id="sat">44713</div>
